@@ -31,7 +31,7 @@ const organizationalHierarchy = {
   },
   'Diretoria de Tecnologia, Inovação e Produtos': {
     'Tecnologia': {
-      'Sênior': ['Gerente de TI e de Infraestrutura'],
+      'Sênior': ['Diretor de TI e de Infraestrutura','Gerente de TI e de Infraestrutura'],
       'Pleno': ['Analistas de Suporte / Redes'],
       'Júnior': ['Estagiários (TI)']
     },
@@ -45,7 +45,7 @@ const organizationalHierarchy = {
   },
   'Diretoria Comercial e Marketing': {
     'Comercial': {
-      'Sênior': ['Gerente Comercial'],
+      'Sênior': ['Diretor Comercial e de Marketing', 'Gerente Comercial'],
       'Pleno': ['Analista Comercial']
     },
     'Marketing': {
@@ -55,7 +55,7 @@ const organizationalHierarchy = {
   },
   'Diretoria Administrativa e Financeira': {
     'Financeira': {
-      'Sênior': ['Gerente Financeiro'],
+      'Sênior': ['Diretor Administrivo e Financeiro', 'Gerente Financeiro'],
       'Pleno': ['Analista de Controladoria e Tesouraria']
     },
     'Administrativa': {
@@ -79,14 +79,14 @@ const organizationalHierarchy = {
   },
   'Diretoria Operacional': {
     'Operações': {
-      'Sênior': ['Gerente de Operações'],
+      'Sênior': ['Diretor operacional', 'Gerente de Operações'],
       'Pleno': ['Coordenador Operacional', 'Analista de Processos Operacionais'],
       'Júnior': ['Estagiários (multiárea)']
     }
   },
   'Diretoria de CS e Processos': {
     'Customer Success': {
-      'Sênior': ['Gerente de CS'],
+      'Sênior': ['Diretor de CS', 'Gerente de CS'],
       'Pleno': ['Analista de CS e Suporte (SAC)']
     },
     'Processos / Qualidade': {
@@ -129,6 +129,25 @@ const employeesByDepartment = {
     { id: '1', nome: 'Carlos Silva', cargo: 'Diretor Executivo' },
     { id: '2', nome: 'Ana Costa', cargo: 'Gerente de Estratégia e Planejamento' },
     { id: '3', nome: 'Maria Santos', cargo: 'Assistente Executivo' }
+  ],
+  'Diretoria de Tecnologia, Inovação e Produtos': [
+    { id: '35', nome: 'Ricardo Almeida', cargo: 'Diretor de Tecnologia' },
+    { id: '36', nome: 'Luciana Ferreira', cargo: 'Diretora de Inovação' }
+  ],
+  'Diretoria Comercial e Marketing': [
+    { id: '37', nome: 'Fernando Santos', cargo: 'Diretor Comercial' },
+    { id: '38', nome: 'Carla Oliveira', cargo: 'Diretora de Marketing' }
+  ],
+  'Diretoria Administrativa e Financeira': [
+    { id: '39', nome: 'Roberto Lima', cargo: 'Diretor Administrativo' },
+    { id: '40', nome: 'Sandra Costa', cargo: 'Diretora Financeira' }
+  ],
+  'Diretoria Operacional': [
+    { id: '41', nome: 'Paulo Mendes', cargo: 'Diretor Operacional' }
+  ],
+  'Diretoria de CS e Processos': [
+    { id: '42', nome: 'Juliana Rocha', cargo: 'Diretora de CS' },
+    { id: '43', nome: 'Marcos Silva', cargo: 'Diretor de Processos' }
   ],
   'Tecnologia': [
     { id: '4', nome: 'João Oliveira', cargo: 'Gerente de TI e de Infraestrutura' },
@@ -401,7 +420,8 @@ const TimeInternoForm: React.FC<TimeInternoFormProps> = ({
       dadosProfissionais: {
         ...prev.dadosProfissionais,
         cargo: cargo,
-        departamento: departamento
+        departamento: departamento,
+        gestorResponsavel: '' // Limpar gestor quando cargo mudar
       }
     }))
   }
@@ -1021,7 +1041,7 @@ const TimeInternoForm: React.FC<TimeInternoFormProps> = ({
           </label>
           <select
             value={formData.dadosProfissionais.gestorResponsavel || ''}
-            onChange={(e) => handleNestedInputChange('dadosProfissionais', '', 'gestorResponsavel', e.target.value)}
+            onChange={(e) => handleInputChange('dadosProfissionais', 'gestorResponsavel', e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             disabled={!formData.dadosProfissionais.departamento}
           >
