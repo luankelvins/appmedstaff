@@ -24,7 +24,13 @@ import {
   Paperclip,
   UserCheck,
   Stethoscope,
-  Archive
+  Archive,
+  CreditCard,
+  Home,
+  UserPlus,
+  Banknote,
+  Gift,
+  Contact
 } from 'lucide-react'
 import { TimeInternoForm } from '../../types/crm'
 import { formatCurrency } from '../../utils/formatters'
@@ -34,7 +40,7 @@ interface EmployeeCardProps {
 }
 
 const EmployeeCard: React.FC<EmployeeCardProps> = ({ employee }) => {
-  const [activeTab, setActiveTab] = useState<'personal' | 'professional' | 'documents' | 'health' | 'aso' | 'attachments'>('personal')
+  const [activeTab, setActiveTab] = useState<'personal' | 'professional' | 'documents' | 'health' | 'aso' | 'attachments' | 'financial' | 'dependents' | 'workschedule'>('personal')
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -62,6 +68,16 @@ const EmployeeCard: React.FC<EmployeeCardProps> = ({ employee }) => {
     return new Date(dateString).toLocaleDateString('pt-BR')
   }
 
+  const formatCPF = (cpf: string) => {
+    if (!cpf) return '-'
+    return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
+  }
+
+  const formatPhone = (phone: string) => {
+    if (!phone) return '-'
+    return phone.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3')
+  }
+
   const calculateWorkTime = () => {
     if (!employee.dadosProfissionais.dataAdmissao) return '-'
     const admissionDate = new Date(employee.dadosProfissionais.dataAdmissao)
@@ -76,6 +92,32 @@ const EmployeeCard: React.FC<EmployeeCardProps> = ({ employee }) => {
     }
     return `${months} mês${months !== 1 ? 'es' : ''}`
   }
+
+  const calculateAge = () => {
+    if (!employee.dadosPessoais.dataNascimento) return '-'
+    const birthDate = new Date(employee.dadosPessoais.dataNascimento)
+    const today = new Date()
+    let age = today.getFullYear() - birthDate.getFullYear()
+    const monthDiff = today.getMonth() - birthDate.getMonth()
+    
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--
+    }
+    
+    return `${age} anos`
+  }
+
+  const tabs = [
+    { id: 'personal', label: 'Pessoal', icon: User },
+    { id: 'professional', label: 'Profissional', icon: Briefcase },
+    { id: 'workschedule', label: 'Jornada', icon: Clock },
+    { id: 'financial', label: 'Financeiro', icon: DollarSign },
+    { id: 'dependents', label: 'Dependentes', icon: Users },
+    { id: 'health', label: 'Saúde', icon: Heart },
+    { id: 'aso', label: 'ASO', icon: Stethoscope },
+    { id: 'documents', label: 'Documentos', icon: FileText },
+    { id: 'attachments', label: 'Anexos', icon: Paperclip }
+  ]
 
   return (
     <div className="bg-white rounded-2xl shadow-lg w-full overflow-hidden">
@@ -510,62 +552,170 @@ const EmployeeCard: React.FC<EmployeeCardProps> = ({ employee }) => {
           </div>
         )}
 
-        {activeTab === 'health' && (
+        {activeTab === 'workschedule' && (
           <div className="space-y-6">
-            {/* Dependentes */}
-            {employee.dependentes && employee.dependentes.length > 0 && (
-              <div className="bg-blue-50 rounded-lg p-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                  <Users className="w-5 h-5 mr-2 text-blue-600" />
-                  Dependentes ({employee.dependentes.length})
-                </h3>
-                <div className="space-y-3">
-                  {employee.dependentes.map((dependente, index) => (
-                    <div key={index} className="bg-white rounded-lg p-3 border">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <div>
-                          <span className="text-gray-600 text-sm">Nome:</span>
-                          <p className="font-medium">{dependente.nome}</p>
-                        </div>
-                        <div>
-                          <span className="text-gray-600 text-sm">Parentesco:</span>
-                          <p className="font-medium">{dependente.grauParentesco}</p>
-                        </div>
-                        <div>
-                          <span className="text-gray-600 text-sm">Nascimento:</span>
-                          <p className="font-medium">{formatDate(dependente.dataNascimento)}</p>
-                        </div>
-                        {dependente.cpf && (
-                          <div>
-                            <span className="text-gray-600 text-sm">CPF:</span>
-                            <p className="font-medium">{dependente.cpf}</p>
-                          </div>
-                        )}
-                      </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <Clock className="w-5 h-5 mr-2 text-blue-600" />
+                Jornada de Trabalho
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-500">Escala</label>
+                  <p className="text-gray-900">{employee.jornadaTrabalho.escala || 'Não informado'}</p>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-500">Carga Horária</label>
+                  <p className="text-gray-900">{employee.jornadaTrabalho.cargaHoraria ? `${employee.jornadaTrabalho.cargaHoraria}h` : 'Não informado'}</p>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-500">Horário de Entrada</label>
+                  <p className="text-gray-900">{employee.jornadaTrabalho.horarioEntrada || 'Não informado'}</p>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-500">Horário de Saída</label>
+                  <p className="text-gray-900">{employee.jornadaTrabalho.horarioSaida || 'Não informado'}</p>
+                </div>
+                <div className="space-y-1 md:col-span-2">
+                  <label className="text-sm font-medium text-gray-500">Intervalos</label>
+                  <p className="text-gray-900">{employee.jornadaTrabalho.intervalos || 'Não informado'}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'financial' && (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <DollarSign className="w-5 h-5 mr-2 text-green-600" />
+                Informações Financeiras
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-500">Salário Base</label>
+                  <p className="text-gray-900 font-semibold">{formatCurrency(employee.dadosFinanceiros.salarioBase)}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Benefícios */}
+            {employee.dadosFinanceiros.beneficios && employee.dadosFinanceiros.beneficios.length > 0 && (
+              <div>
+                <h4 className="text-md font-semibold text-gray-900 mb-3 flex items-center">
+                  <Gift className="w-4 h-4 mr-2 text-green-600" />
+                  Benefícios
+                </h4>
+                <div className="space-y-2">
+                  {employee.dadosFinanceiros.beneficios.map((beneficio, index) => (
+                    <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                      <span className="text-gray-900">{beneficio.tipo}</span>
+                      <span className="font-semibold text-green-600">{formatCurrency(beneficio.valor)}</span>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Informações de Saúde */}
-            <div className="bg-red-50 rounded-lg p-4">
+            {/* Dados Bancários */}
+            <div>
+              <h4 className="text-md font-semibold text-gray-900 mb-3 flex items-center">
+                <CreditCard className="w-4 h-4 mr-2 text-blue-600" />
+                Dados Bancários
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-500">Banco</label>
+                  <p className="text-gray-900">{employee.dadosFinanceiros.dadosBancarios.banco || 'Não informado'}</p>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-500">Agência</label>
+                  <p className="text-gray-900">{employee.dadosFinanceiros.dadosBancarios.agencia || 'Não informado'}</p>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-500">Conta</label>
+                  <p className="text-gray-900">{employee.dadosFinanceiros.dadosBancarios.conta || 'Não informado'}</p>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-500">Tipo de Conta</label>
+                  <p className="text-gray-900">{employee.dadosFinanceiros.dadosBancarios.tipoConta === 'corrente' ? 'Conta Corrente' : 'Poupança'}</p>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-500">PIX</label>
+                  <p className="text-gray-900">{employee.dadosFinanceiros.dadosBancarios.pix || 'Não informado'}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'dependents' && (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <Users className="w-5 h-5 mr-2 text-blue-600" />
+                Dependentes
+              </h3>
+              {employee.dependentes && employee.dependentes.length > 0 ? (
+                <div className="space-y-4">
+                  {employee.dependentes.map((dependente, index) => (
+                    <div key={index} className="p-4 border border-gray-200 rounded-lg">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-sm font-medium text-gray-500">Nome</label>
+                          <p className="text-gray-900">{dependente.nome}</p>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-sm font-medium text-gray-500">Data de Nascimento</label>
+                          <p className="text-gray-900">{formatDate(dependente.dataNascimento)}</p>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-sm font-medium text-gray-500">Grau de Parentesco</label>
+                          <p className="text-gray-900">{dependente.grauParentesco}</p>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-sm font-medium text-gray-500">CPF</label>
+                          <p className="text-gray-900">{dependente.cpf ? formatCPF(dependente.cpf) : 'Não informado'}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <UserPlus className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500">Nenhum dependente cadastrado</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'health' && (
+          <div className="space-y-6">
+            <div>
               <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                 <Heart className="w-5 h-5 mr-2 text-red-600" />
                 Informações de Saúde
               </h3>
-              <div className="space-y-3">
-                {employee.dadosPessoais.alergias ? (
-                  <div>
-                    <span className="text-gray-600">Alergias e Restrições:</span>
-                    <p className="font-medium text-red-700 bg-red-100 p-2 rounded mt-1">
-                      {employee.dadosPessoais.alergias}
-                    </p>
+              
+              {employee.dadosPessoais.alergias ? (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="flex items-start space-x-3">
+                    <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
+                    <div>
+                      <h4 className="font-medium text-red-900">Alergias Conhecidas</h4>
+                      <p className="text-red-700 mt-1">{employee.dadosPessoais.alergias}</p>
+                    </div>
                   </div>
-                ) : (
-                  <p className="text-gray-500 italic">Nenhuma alergia ou restrição informada</p>
-                )}
-              </div>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Heart className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500">Nenhuma informação de saúde registrada</p>
+                </div>
+              )}
             </div>
           </div>
         )}
