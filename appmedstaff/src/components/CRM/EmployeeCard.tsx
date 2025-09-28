@@ -30,17 +30,33 @@ import {
   UserPlus,
   Banknote,
   Gift,
-  Contact
+  Contact,
+  MessageSquare
 } from 'lucide-react'
-import { TimeInternoForm } from '../../types/crm'
+import { TimeInternoForm, EmployeeComment } from '../../types/crm'
 import { formatCurrency } from '../../utils/formatters'
+import EmployeeComments from './EmployeeComments'
 
 interface EmployeeCardProps {
   employee: TimeInternoForm
+  onAddComment?: (comment: Omit<EmployeeComment, 'id' | 'createdAt'>) => void
+  onUpdateComment?: (commentId: string, updates: Partial<EmployeeComment>) => void
+  onDeleteComment?: (commentId: string) => void
+  currentUserId?: string
+  currentUserName?: string
+  currentUserRole?: string
 }
 
-const EmployeeCard: React.FC<EmployeeCardProps> = ({ employee }) => {
-  const [activeTab, setActiveTab] = useState<'personal' | 'professional' | 'documents' | 'health' | 'aso' | 'attachments' | 'financial' | 'dependents' | 'workschedule'>('personal')
+const EmployeeCard: React.FC<EmployeeCardProps> = ({ 
+  employee,
+  onAddComment,
+  onUpdateComment,
+  onDeleteComment,
+  currentUserId = 'current-user-id',
+  currentUserName = 'Usuário Atual',
+  currentUserRole = 'RH'
+}) => {
+  const [activeTab, setActiveTab] = useState<'personal' | 'professional' | 'documents' | 'health' | 'aso' | 'attachments' | 'financial' | 'dependents' | 'workschedule' | 'comments'>('personal')
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -116,7 +132,8 @@ const EmployeeCard: React.FC<EmployeeCardProps> = ({ employee }) => {
     { id: 'health', label: 'Saúde', icon: Heart },
     { id: 'aso', label: 'ASO', icon: Stethoscope },
     { id: 'documents', label: 'Documentos', icon: FileText },
-    { id: 'attachments', label: 'Anexos', icon: Paperclip }
+    { id: 'attachments', label: 'Anexos', icon: Paperclip },
+    { id: 'comments', label: 'Comentários', icon: MessageSquare }
   ]
 
   return (
@@ -188,7 +205,8 @@ const EmployeeCard: React.FC<EmployeeCardProps> = ({ employee }) => {
             { id: 'health', label: 'Saúde', icon: Heart },
             { id: 'aso', label: 'ASO', icon: Stethoscope },
             { id: 'documents', label: 'Documentos', icon: FileText },
-            { id: 'attachments', label: 'Anexos', icon: Paperclip }
+            { id: 'attachments', label: 'Anexos', icon: Paperclip },
+            { id: 'comments', label: 'Comentários', icon: MessageSquare }
           ].map((tab) => {
             const Icon = tab.icon
             return (
@@ -927,6 +945,34 @@ const EmployeeCard: React.FC<EmployeeCardProps> = ({ employee }) => {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {activeTab === 'comments' && (
+          <div className="space-y-6">
+            <EmployeeComments
+              employeeId={employee.id || 'temp-id'}
+              employeeName={employee.dadosPessoais.nome}
+              comments={employee.comments || []}
+              onAddComment={onAddComment || ((comment) => {
+                console.log('Adicionar comentário:', comment)
+                // Implementação padrão - aqui você pode adicionar lógica para salvar no backend
+              })}
+              onUpdateComment={onUpdateComment || ((commentId, updates) => {
+                console.log('Atualizar comentário:', commentId, updates)
+                // Implementação padrão - aqui você pode adicionar lógica para atualizar no backend
+              })}
+              onDeleteComment={onDeleteComment || ((commentId) => {
+                console.log('Deletar comentário:', commentId)
+                // Implementação padrão - aqui você pode adicionar lógica para deletar no backend
+              })}
+              currentUserId={currentUserId}
+              currentUserName={currentUserName}
+              currentUserRole={currentUserRole}
+              canEdit={true}
+              canDelete={currentUserRole === 'SuperAdmin' || currentUserRole === 'RH'}
+              canViewPrivate={currentUserRole === 'SuperAdmin' || currentUserRole === 'RH' || currentUserRole === 'Gerente'}
+            />
           </div>
         )}
       </div>

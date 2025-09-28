@@ -11,6 +11,18 @@ export interface Document {
   notes?: string
 }
 
+export interface MandatoryDocument {
+  id: string
+  name: string
+  type: 'aso' | 'comprovante_residencia' | 'documento_identificacao' | 'contrato_trabalho'
+  file?: File
+  url?: string
+  status: 'pending' | 'uploaded' | 'validated' | 'rejected'
+  uploadDate?: string
+  notes?: string
+  required: boolean
+}
+
 // Cliente Pessoa Física
 export interface ClientePFForm {
   // Informações Pessoais
@@ -354,6 +366,9 @@ export interface TimeInternoForm {
     }
   }
   
+  // Documentos Obrigatórios
+  documentosObrigatorios: MandatoryDocument[]
+  
   // Documentos e Anexos
   documentos: Array<{
     id: string
@@ -390,11 +405,14 @@ export interface TimeInternoForm {
   }>
   observacoesAnexos?: string
   
-  // Status
+  // Status// Controle
   status: 'ativo' | 'inativo' | 'afastado' | 'desligado'
   responsavelRH: string
   perfilEditavel?: boolean // Controla se o perfil pode ser editado
   observacoes?: string
+  
+  // Sistema de Comentários
+  comments?: EmployeeComment[]
 }
 
 // Serviços Especiais
@@ -537,6 +555,65 @@ export interface FormSection {
   title: string
   description?: string
   fields: FormField[]
+}
+
+// Interfaces para Sistema de Comentários do Funcionário
+export interface EmployeeComment {
+  id: string
+  employeeId: string
+  authorId: string
+  authorName: string
+  authorRole: string
+  type: 'aviso' | 'advertencia' | 'elogio' | 'observacao' | 'atestado' | 'ferias' | 'licenca' | 'treinamento' | 'promocao' | 'outros'
+  title: string
+  content: string
+  isPrivate: boolean // Se apenas RH pode visualizar
+  attachments: EmployeeCommentAttachment[]
+  createdAt: string
+  updatedAt?: string
+  editedBy?: string
+  tags?: string[]
+  priority: 'baixa' | 'media' | 'alta' | 'urgente'
+  status: 'ativo' | 'arquivado' | 'resolvido'
+  expirationDate?: string // Para avisos temporários
+  requiresAcknowledgment?: boolean // Se requer confirmação de leitura do funcionário
+  acknowledgmentDate?: string
+  relatedComments?: string[] // IDs de comentários relacionados
+}
+
+export interface EmployeeCommentAttachment {
+  id: string
+  commentId: string
+  name: string
+  type: string
+  size: number
+  file?: File
+  url?: string
+  uploadDate: string
+  uploadedBy: string
+  description?: string
+  category: 'documento_oficial' | 'atestado_medico' | 'comprovante' | 'foto' | 'outros'
+}
+
+export interface CommentFilter {
+  type?: EmployeeComment['type'][]
+  priority?: EmployeeComment['priority'][]
+  status?: EmployeeComment['status'][]
+  dateRange?: {
+    start: string
+    end: string
+  }
+  author?: string[]
+  tags?: string[]
+  hasAttachments?: boolean
+}
+
+export interface CommentStats {
+  total: number
+  byType: Record<EmployeeComment['type'], number>
+  byPriority: Record<EmployeeComment['priority'], number>
+  byStatus: Record<EmployeeComment['status'], number>
+  recentCount: number // Últimos 30 dias
 }
 
 export interface CRMForm {

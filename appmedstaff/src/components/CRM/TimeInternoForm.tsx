@@ -21,7 +21,7 @@ import {
   Plus,
   Trash2
 } from 'lucide-react'
-import { TimeInternoForm as TimeInternoFormType } from '../../types/crm'
+import { TimeInternoForm as TimeInternoFormType, MandatoryDocument } from '../../types/crm'
 
 // Estrutura hierárquica organizacional
 const organizationalHierarchy = {
@@ -353,11 +353,13 @@ const TimeInternoForm: React.FC<TimeInternoFormProps> = ({
       }
     },
     documentos: [],
+    documentosObrigatorios: [],
     anexosNotificacoes: [],
     anexos: [],
     observacoesAnexos: '',
     status: 'ativo',
-    responsavelRH: ''
+    responsavelRH: '',
+    comments: []
   })
 
   useEffect(() => {
@@ -557,6 +559,14 @@ const TimeInternoForm: React.FC<TimeInternoFormProps> = ({
     setFormData(prev => ({
       ...prev,
       documentos: prev.documentos.filter((_, i) => i !== index)
+    }))
+  }
+
+  // Função para gerenciar documentos obrigatórios
+  const handleMandatoryDocumentUpdate = (documents: MandatoryDocument[]) => {
+    setFormData(prev => ({
+      ...prev,
+      documentosObrigatorios: documents
     }))
   }
 
@@ -1533,7 +1543,214 @@ const TimeInternoForm: React.FC<TimeInternoFormProps> = ({
       </div>
 
       <div className="space-y-6">
-        {formData.documentos.map((documento, index) => (
+        {/* Seção de Documentos Obrigatórios */}
+        <div className="bg-white p-6 border border-gray-200 rounded-lg">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+            <Shield className="h-5 w-5 mr-2 text-red-600" />
+            Documentos Obrigatórios
+          </h3>
+          <p className="text-sm text-gray-600 mb-6">
+            Faça o upload dos documentos obrigatórios necessários para o cadastro
+          </p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* ASO - Atestado de Saúde Ocupacional */}
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-gray-700">
+                ASO - Atestado de Saúde Ocupacional <span className="text-red-500">*</span>
+              </label>
+              <p className="text-xs text-gray-500">Formatos aceitos: PDF, JPG, PNG | Máx: 10MB</p>
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-gray-400 transition-colors">
+                <input
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) {
+                      const newDoc: MandatoryDocument = {
+                        id: `aso_${Date.now()}`,
+                        name: file.name,
+                        type: 'aso',
+                        file,
+                        status: 'uploaded',
+                        uploadDate: new Date().toISOString(),
+                        required: true
+                      }
+                      const updatedDocs = formData.documentosObrigatorios.filter(doc => doc.type !== 'aso')
+                      handleMandatoryDocumentUpdate([...updatedDocs, newDoc])
+                    }
+                  }}
+                />
+              </div>
+              {formData.documentosObrigatorios.find(doc => doc.type === 'aso') && (
+                <div className="bg-green-50 border border-green-200 rounded-md p-3">
+                  <div className="flex items-center">
+                    <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
+                    <span className="text-sm text-green-700">
+                      {formData.documentosObrigatorios.find(doc => doc.type === 'aso')?.name}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Comprovante de Residência */}
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-gray-700">
+                Comprovante de Residência <span className="text-red-500">*</span>
+              </label>
+              <p className="text-xs text-gray-500">Conta de luz, água, telefone ou similar | Máx: 10MB</p>
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-gray-400 transition-colors">
+                <input
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) {
+                      const newDoc: MandatoryDocument = {
+                        id: `comprovante_residencia_${Date.now()}`,
+                        name: file.name,
+                        type: 'comprovante_residencia',
+                        file,
+                        status: 'uploaded',
+                        uploadDate: new Date().toISOString(),
+                        required: true
+                      }
+                      const updatedDocs = formData.documentosObrigatorios.filter(doc => doc.type !== 'comprovante_residencia')
+                      handleMandatoryDocumentUpdate([...updatedDocs, newDoc])
+                    }
+                  }}
+                />
+              </div>
+              {formData.documentosObrigatorios.find(doc => doc.type === 'comprovante_residencia') && (
+                <div className="bg-green-50 border border-green-200 rounded-md p-3">
+                  <div className="flex items-center">
+                    <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
+                    <span className="text-sm text-green-700">
+                      {formData.documentosObrigatorios.find(doc => doc.type === 'comprovante_residencia')?.name}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Documento de Identificação */}
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-gray-700">
+                Documento de Identificação <span className="text-red-500">*</span>
+              </label>
+              <p className="text-xs text-gray-500">RG, CNH ou Passaporte | Máx: 10MB</p>
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-gray-400 transition-colors">
+                <input
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) {
+                      const newDoc: MandatoryDocument = {
+                        id: `documento_identificacao_${Date.now()}`,
+                        name: file.name,
+                        type: 'documento_identificacao',
+                        file,
+                        status: 'uploaded',
+                        uploadDate: new Date().toISOString(),
+                        required: true
+                      }
+                      const updatedDocs = formData.documentosObrigatorios.filter(doc => doc.type !== 'documento_identificacao')
+                      handleMandatoryDocumentUpdate([...updatedDocs, newDoc])
+                    }
+                  }}
+                />
+              </div>
+              {formData.documentosObrigatorios.find(doc => doc.type === 'documento_identificacao') && (
+                <div className="bg-green-50 border border-green-200 rounded-md p-3">
+                  <div className="flex items-center">
+                    <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
+                    <span className="text-sm text-green-700">
+                      {formData.documentosObrigatorios.find(doc => doc.type === 'documento_identificacao')?.name}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Contrato de Trabalho */}
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-gray-700">
+                Contrato de Trabalho <span className="text-red-500">*</span>
+              </label>
+              <p className="text-xs text-gray-500">Contrato de trabalho assinado | Máx: 10MB</p>
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-gray-400 transition-colors">
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx"
+                  className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) {
+                      const newDoc: MandatoryDocument = {
+                        id: `contrato_trabalho_${Date.now()}`,
+                        name: file.name,
+                        type: 'contrato_trabalho',
+                        file,
+                        status: 'uploaded',
+                        uploadDate: new Date().toISOString(),
+                        required: true
+                      }
+                      const updatedDocs = formData.documentosObrigatorios.filter(doc => doc.type !== 'contrato_trabalho')
+                      handleMandatoryDocumentUpdate([...updatedDocs, newDoc])
+                    }
+                  }}
+                />
+              </div>
+              {formData.documentosObrigatorios.find(doc => doc.type === 'contrato_trabalho') && (
+                <div className="bg-green-50 border border-green-200 rounded-md p-3">
+                  <div className="flex items-center">
+                    <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
+                    <span className="text-sm text-green-700">
+                      {formData.documentosObrigatorios.find(doc => doc.type === 'contrato_trabalho')?.name}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Resumo dos documentos obrigatórios */}
+          <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+            <h4 className="text-sm font-medium text-gray-900 mb-2">Status dos Documentos Obrigatórios</h4>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+              <div className={`flex items-center ${formData.documentosObrigatorios.find(doc => doc.type === 'aso') ? 'text-green-600' : 'text-red-600'}`}>
+                {formData.documentosObrigatorios.find(doc => doc.type === 'aso') ? <CheckCircle className="w-3 h-3 mr-1" /> : <AlertCircle className="w-3 h-3 mr-1" />}
+                ASO
+              </div>
+              <div className={`flex items-center ${formData.documentosObrigatorios.find(doc => doc.type === 'comprovante_residencia') ? 'text-green-600' : 'text-red-600'}`}>
+                {formData.documentosObrigatorios.find(doc => doc.type === 'comprovante_residencia') ? <CheckCircle className="w-3 h-3 mr-1" /> : <AlertCircle className="w-3 h-3 mr-1" />}
+                Comprovante
+              </div>
+              <div className={`flex items-center ${formData.documentosObrigatorios.find(doc => doc.type === 'documento_identificacao') ? 'text-green-600' : 'text-red-600'}`}>
+                {formData.documentosObrigatorios.find(doc => doc.type === 'documento_identificacao') ? <CheckCircle className="w-3 h-3 mr-1" /> : <AlertCircle className="w-3 h-3 mr-1" />}
+                Identificação
+              </div>
+              <div className={`flex items-center ${formData.documentosObrigatorios.find(doc => doc.type === 'contrato_trabalho') ? 'text-green-600' : 'text-red-600'}`}>
+                {formData.documentosObrigatorios.find(doc => doc.type === 'contrato_trabalho') ? <CheckCircle className="w-3 h-3 mr-1" /> : <AlertCircle className="w-3 h-3 mr-1" />}
+                Contrato
+              </div>
+            </div>
+          </div>
+        </div>
+
+         {/* Seção de Documentos Adicionais */}
+         <div className="bg-white p-6 border border-gray-200 rounded-lg">
+           <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+             <Plus className="h-5 w-5 mr-2 text-purple-600" />
+             Documentos Adicionais
+           </h3>
+           <div className="space-y-4">
+             {formData.documentos.map((documento, index) => (
           <div key={index} className="bg-white p-4 border border-gray-200 rounded-lg">
             <div className="flex justify-between items-center mb-4">
               <h4 className="font-medium text-gray-900">Documento {index + 1}</h4>
@@ -1624,35 +1841,37 @@ const TimeInternoForm: React.FC<TimeInternoFormProps> = ({
           </div>
         ))}
         
-        <button
-          type="button"
-          onClick={addDocumento}
-          className="flex items-center px-4 py-2 text-purple-600 border border-purple-300 rounded-lg hover:bg-purple-50"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Adicionar Documento
-        </button>
+             <button
+               type="button"
+               onClick={addDocumento}
+               className="flex items-center px-4 py-2 text-purple-600 border border-purple-300 rounded-lg hover:bg-purple-50"
+             >
+               <Plus className="h-4 w-4 mr-2" />
+               Adicionar Documento
+             </button>
+           </div>
+         </div>
 
-        {/* Responsável RH */}
-        <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <h4 className="font-medium text-gray-900 mb-3 flex items-center">
-            <User className="h-5 w-5 mr-2 text-blue-600" />
-            Responsável RH
-          </h4>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Nome do Responsável</label>
-            <input
-              type="text"
-              value={formData.responsavelRH}
-              onChange={(e) => setFormData(prev => ({ ...prev, responsavelRH: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Nome do responsável pelo RH"
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-  )
+         {/* Responsável RH */}
+         <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+           <h4 className="font-medium text-gray-900 mb-3 flex items-center">
+             <User className="h-5 w-5 mr-2 text-blue-600" />
+             Responsável RH
+           </h4>
+           <div>
+             <label className="block text-sm font-medium text-gray-700 mb-2">Nome do Responsável</label>
+             <input
+               type="text"
+               value={formData.responsavelRH}
+               onChange={(e) => setFormData(prev => ({ ...prev, responsavelRH: e.target.value }))}
+               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+               placeholder="Nome do responsável pelo RH"
+             />
+           </div>
+         </div>
+       </div>
+     </div>
+   )
 
   // Render Anexos Step
   const renderAnexosStep = () => (
@@ -1723,23 +1942,30 @@ const TimeInternoForm: React.FC<TimeInternoFormProps> = ({
           </div>
         </div>
 
-        {/* Lista de Anexos */}
+        {/* Lista de Anexos - Campos Individuais */}
         {formData.anexos && formData.anexos.length > 0 && (
           <div className="bg-white p-6 border border-gray-200 rounded-lg">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+            <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
               <FileText className="h-5 w-5 mr-2 text-orange-600" />
               Anexos Adicionados ({formData.anexos.length})
             </h3>
             
-            <div className="space-y-4">
+            <div className="space-y-6">
               {formData.anexos.map((anexo, index) => (
-                <div key={anexo.id} className="bg-gray-50 p-4 border border-gray-200 rounded-lg">
-                  <div className="flex justify-between items-start mb-3">
-                    <div className="flex-1">
-                      <h4 className="font-medium text-gray-900">{anexo.nome}</h4>
-                      <p className="text-sm text-gray-500">
-                        {anexo.arquivo ? `${(anexo.arquivo.size / 1024 / 1024).toFixed(2)} MB` : 'Tamanho não disponível'}
-                      </p>
+                <div key={anexo.id} className="bg-gradient-to-r from-orange-50 to-amber-50 p-6 border-2 border-orange-200 rounded-xl shadow-sm">
+                  {/* Cabeçalho do Anexo */}
+                  <div className="flex justify-between items-start mb-4 pb-4 border-b border-orange-200">
+                    <div className="flex items-center space-x-3">
+                      <div className="bg-orange-500 p-2 rounded-lg">
+                        <FileText className="h-5 w-5 text-white" />
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-gray-900 text-lg">Anexo #{index + 1}</h4>
+                        <p className="text-sm text-gray-600">{anexo.nome}</p>
+                        <p className="text-xs text-gray-500">
+                          {anexo.arquivo ? `${(anexo.arquivo.size / 1024 / 1024).toFixed(2)} MB` : 'Tamanho não disponível'}
+                        </p>
+                      </div>
                     </div>
                     <button
                       type="button"
@@ -1749,39 +1975,69 @@ const TimeInternoForm: React.FC<TimeInternoFormProps> = ({
                           anexos: prev.anexos?.filter(a => a.id !== anexo.id) || []
                         }))
                       }}
-                      className="text-red-600 hover:text-red-800 ml-4"
+                      className="bg-red-100 hover:bg-red-200 text-red-600 hover:text-red-800 p-2 rounded-lg transition-colors"
+                      title="Remover anexo"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
-                      <select
-                        value={anexo.categoria}
-                        onChange={(e) => {
-                          setFormData(prev => ({
-                            ...prev,
-                            anexos: prev.anexos?.map(a => 
-                              a.id === anexo.id 
-                                ? { ...a, categoria: e.target.value as any }
-                                : a
-                            ) || []
-                          }))
-                        }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm"
-                      >
-                        <option value="contrato">Contrato</option>
-                        <option value="documento_pessoal">Documento Pessoal</option>
-                        <option value="certificado">Certificado</option>
-                        <option value="outros">Outros</option>
-                      </select>
+                  {/* Campos do Anexo */}
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="block text-sm font-semibold text-gray-700">
+                          Categoria do Anexo
+                        </label>
+                        <select
+                          value={anexo.categoria}
+                          onChange={(e) => {
+                            setFormData(prev => ({
+                              ...prev,
+                              anexos: prev.anexos?.map(a => 
+                                a.id === anexo.id 
+                                  ? { ...a, categoria: e.target.value as any }
+                                  : a
+                              ) || []
+                            }))
+                          }}
+                          className="w-full px-4 py-3 border-2 border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white text-sm font-medium"
+                        >
+                          <option value="contrato">📄 Contrato</option>
+                          <option value="documento_pessoal">🆔 Documento Pessoal</option>
+                          <option value="certificado">🏆 Certificado</option>
+                          <option value="outros">📎 Outros</option>
+                        </select>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <label className="block text-sm font-semibold text-gray-700">
+                          Nome/Título do Arquivo
+                        </label>
+                        <input
+                          type="text"
+                          value={anexo.nome}
+                          onChange={(e) => {
+                            setFormData(prev => ({
+                              ...prev,
+                              anexos: prev.anexos?.map(a => 
+                                a.id === anexo.id 
+                                  ? { ...a, nome: e.target.value }
+                                  : a
+                              ) || []
+                            }))
+                          }}
+                          className="w-full px-4 py-3 border-2 border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-sm"
+                          placeholder="Ex: Contrato de Trabalho, RG, Diploma..."
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
-                      <input
-                        type="text"
+                    
+                    <div className="space-y-2">
+                      <label className="block text-sm font-semibold text-gray-700">
+                        Descrição Detalhada
+                      </label>
+                      <textarea
                         value={anexo.descricao}
                         onChange={(e) => {
                           setFormData(prev => ({
@@ -1793,9 +2049,29 @@ const TimeInternoForm: React.FC<TimeInternoFormProps> = ({
                             ) || []
                           }))
                         }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm"
-                        placeholder="Descrição do arquivo"
+                        className="w-full px-4 py-3 border-2 border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-sm resize-none"
+                        rows={3}
+                        placeholder="Descreva o conteúdo e a finalidade deste anexo..."
                       />
+                    </div>
+                    
+                    {/* Informações do Arquivo */}
+                    <div className="bg-white p-4 rounded-lg border border-orange-200">
+                      <h5 className="font-medium text-gray-800 mb-2">Informações do Arquivo:</h5>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                        <div>
+                          <span className="font-medium text-gray-600">Tipo:</span>
+                          <p className="text-gray-800">{anexo.tipo || 'Não especificado'}</p>
+                        </div>
+                        <div>
+                          <span className="font-medium text-gray-600">Data de Upload:</span>
+                          <p className="text-gray-800">{anexo.data || 'Hoje'}</p>
+                        </div>
+                        <div>
+                          <span className="font-medium text-gray-600">Status:</span>
+                          <p className="text-green-600 font-medium">✅ Anexado</p>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
