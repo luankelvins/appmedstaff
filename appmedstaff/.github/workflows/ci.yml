@@ -97,67 +97,17 @@ jobs:
     - name: Run dependency check
       run: npx audit-ci --moderate
       
-  deploy-staging:
-    runs-on: ubuntu-latest
-    needs: [test, build, security]
-    if: github.ref == 'refs/heads/develop'
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20.x'
-        cache: 'npm'
-        
-    - name: Install dependencies
-      run: npm ci
-      
-    - name: Install Vercel CLI
-      run: npm install -g vercel@latest
-      
-    - name: Deploy to Vercel (Preview)
-      run: vercel --token=${{ secrets.VERCEL_TOKEN }}
-      env:
-        VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-        VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-        
-  deploy-production:
-    runs-on: ubuntu-latest
-    needs: [test, build, security]
-    if: github.ref == 'refs/heads/main'
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20.x'
-        cache: 'npm'
-        
-    - name: Install dependencies
-      run: npm ci
-      
-    - name: Install Vercel CLI
-      run: npm install -g vercel@latest
-      
-    - name: Deploy to Vercel (Production)
-      run: vercel --prod --token=${{ secrets.VERCEL_TOKEN }}
-      env:
-        VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-        VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-        
+  # Deploy automático será feito pela Vercel
+  # Removido deploy manual para evitar conflitos
+  
   notify:
     runs-on: ubuntu-latest
-    needs: [deploy-staging, deploy-production]
-    if: always()
+    needs: [test, build, security]
+    if: always() && github.ref == 'refs/heads/main'
     
     steps:
-    - name: Notify deployment status
+    - name: Notify CI completion
       run: |
-        echo "Notifying deployment status..."
-        # Adicionar notificações (Slack, email, etc.)
+        echo "CI pipeline completed successfully!"
+        echo "Vercel will handle automatic deployment from GitHub integration."
+        # Adicionar notificações (Slack, email, etc.) se necessário
