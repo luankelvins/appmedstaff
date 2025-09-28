@@ -1,11 +1,10 @@
-# Vercel ignore file
-# Apenas arquivos que realmente não são necessários para o build
-
 # Dependencies
 node_modules/
 
-# Build artifacts (apenas dist local, não o que será gerado)
-dist/
+# Environment variables
+.env.local
+.env.development.local
+.env.test.local
 
 # IDE files
 .vscode/
@@ -15,9 +14,8 @@ dist/
 .DS_Store
 Thumbs.db
 
-# Logs
-*.log
-npm-debug.log*
-
 # Git
 .git/
+
+# Logs
+*.log
