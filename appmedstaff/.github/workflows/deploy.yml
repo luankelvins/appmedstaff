@@ -28,6 +28,30 @@ jobs:
       - name: Build project
         run: npm run build
         
+      - name: Check secrets
+        run: |
+          echo "Verificando se os secrets estão configurados..."
+          if [ -z "${{ secrets.VERCEL_TOKEN }}" ]; then
+            echo "❌ VERCEL_TOKEN não configurado"
+            exit 1
+          else
+            echo "✅ VERCEL_TOKEN configurado"
+          fi
+          
+          if [ -z "${{ secrets.VERCEL_ORG_ID }}" ]; then
+            echo "❌ VERCEL_ORG_ID não configurado"
+            exit 1
+          else
+            echo "✅ VERCEL_ORG_ID configurado"
+          fi
+          
+          if [ -z "${{ secrets.VERCEL_PROJECT_ID }}" ]; then
+            echo "❌ VERCEL_PROJECT_ID não configurado"
+            exit 1
+          else
+            echo "✅ VERCEL_PROJECT_ID configurado"
+          fi
+        
       - name: Deploy to Vercel
         uses: amondnet/vercel-action@v25
         with:
