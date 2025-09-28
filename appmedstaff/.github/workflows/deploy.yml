@@ -28,40 +28,20 @@ jobs:
       - name: Build project
         run: npm run build
         
-      - name: Check secrets
-        run: |
-          echo "Verificando se os secrets estão configurados..."
-          if [ -z "${{ secrets.VERCEL_TOKEN }}" ]; then
-            echo "❌ VERCEL_TOKEN não configurado"
-            exit 1
-          else
-            echo "✅ VERCEL_TOKEN configurado"
-          fi
-          
-          if [ -z "${{ secrets.VERCEL_ORG_ID }}" ]; then
-            echo "❌ VERCEL_ORG_ID não configurado"
-            exit 1
-          else
-            echo "✅ VERCEL_ORG_ID configurado"
-          fi
-          
-          if [ -z "${{ secrets.VERCEL_PROJECT_ID }}" ]; then
-            echo "❌ VERCEL_PROJECT_ID não configurado"
-            exit 1
-          else
-            echo "✅ VERCEL_PROJECT_ID configurado"
-          fi
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
         
       - name: Deploy to Vercel
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          vercel-args: '--prod'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          echo "🚀 Iniciando deploy para Vercel..."
+          vercel --token $VERCEL_TOKEN --prod --yes
           
       - name: Comment deployment URL
         if: success()
         run: |
-          echo "🚀 Deployment successful!"
+          echo "🎉 Deploy automático realizado com sucesso!"
           echo "Production URL: https://appmedstaff-v2.vercel.app"
