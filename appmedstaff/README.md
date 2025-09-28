@@ -5,7 +5,7 @@ Sistema de gestão interna da MedStaff com RBAC dinâmico.
 ## 🚀 Status do Deploy
 
 - ✅ **Deploy Manual**: Funcionando
-- ✅ **Deploy Automático**: **TESTANDO VIA GITHUB ACTIONS! 🚀** - Secrets configurados
+- ✅ **Deploy Automático**: **TESTANDO COM SECRETS CONFIGURADOS! 🔐** - Secrets configurados
 
 ## URLs
 
