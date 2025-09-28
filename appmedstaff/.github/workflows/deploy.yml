@@ -31,14 +31,44 @@ jobs:
       - name: Install Vercel CLI
         run: npm install -g vercel@latest
         
-      - name: Deploy to Vercel
+      - name: Setup Vercel project
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
-          echo "🚀 Iniciando deploy para Vercel..."
-          vercel --token $VERCEL_TOKEN --prod --yes
+          echo "🔧 Configurando projeto Vercel..."
+          echo '{"projectId":"${{ secrets.VERCEL_PROJECT_ID }}","orgId":"${{ secrets.VERCEL_ORG_ID }}"}' > .vercel/project.json
+          mkdir -p .vercel
+          
+      - name: Deploy to Vercel with fallback
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          echo "🚀 Tentando deploy para Vercel..."
+          
+          # Primeira tentativa: deploy normal
+          if vercel --token $VERCEL_TOKEN --prod --yes; then
+            echo "✅ Deploy realizado com sucesso!"
+            exit 0
+          fi
+          
+          echo "⚠️ Primeira tentativa falhou, tentando sem cache..."
+          
+          # Segunda tentativa: sem cache
+          if vercel --token $VERCEL_TOKEN --prod --yes --force; then
+            echo "✅ Deploy realizado com sucesso (sem cache)!"
+            exit 0
+          fi
+          
+          echo "⚠️ Segunda tentativa falhou, tentando recriar projeto..."
+          
+          # Terceira tentativa: deploy como novo projeto
+          if vercel --token $VERCEL_TOKEN --prod --yes --name appmedstaff-v2; then
+            echo "✅ Deploy realizado com sucesso (projeto recriado)!"
+            exit 0
+          fi
+          
+          echo "❌ Todas as tentativas falharam"
+          exit 1
           
       - name: Comment deployment URL
         if: success()
