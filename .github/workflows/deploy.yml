@@ -1,0 +1,77 @@
+name: Deploy to Vercel
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Run tests
+        run: npm run test:unit
+        
+      - name: Build project
+        run: npm run build
+        
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+        
+      - name: Setup Vercel project
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          echo "🔧 Configurando projeto Vercel..."
+          echo '{"projectId":"${{ secrets.VERCEL_PROJECT_ID }}","orgId":"${{ secrets.VERCEL_ORG_ID }}"}' > .vercel/project.json
+          mkdir -p .vercel
+          
+      - name: Deploy to Vercel with fallback
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          echo "🚀 Tentando deploy para Vercel..."
+          
+          # Primeira tentativa: deploy normal
+          if vercel --token $VERCEL_TOKEN --prod --yes; then
+            echo "✅ Deploy realizado com sucesso!"
+            exit 0
+          fi
+          
+          echo "⚠️ Primeira tentativa falhou, tentando sem cache..."
+          
+          # Segunda tentativa: sem cache
+          if vercel --token $VERCEL_TOKEN --prod --yes --force; then
+            echo "✅ Deploy realizado com sucesso (sem cache)!"
+            exit 0
+          fi
+          
+          echo "⚠️ Segunda tentativa falhou, tentando recriar projeto..."
+          
+          # Terceira tentativa: deploy como novo projeto
+          if vercel --token $VERCEL_TOKEN --prod --yes --name appmedstaff-v2; then
+            echo "✅ Deploy realizado com sucesso (projeto recriado)!"
+            exit 0
+          fi
+          
+          echo "❌ Todas as tentativas falharam"
+          exit 1
+          
+      - name: Comment deployment URL
+        if: success()
+        run: |
+          echo "🎉 Deploy automático realizado com sucesso!"
+          echo "Production URL: https://appmedstaff-v2.vercel.app"
