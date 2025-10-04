@@ -901,3 +901,129 @@ export interface LeadPipelineConfig {
     diasSemana: number[] // 0-6 (domingo-sábado)
   }
 }
+
+// Cliente Pessoa Física
+export interface ClientePFForm {
+  id?: string
+  numeroCliente?: string // Número único de identificação do cliente
+
+  // Dados pessoais
+  dadosPessoais: {
+    nome: string
+    cpf: string
+    rg?: string
+    dataNascimento: string
+    estadoCivil: 'solteiro' | 'casado' | 'divorciado' | 'viuvo' | 'uniao_estavel'
+    profissao: string
+    endereco: {
+      cep: string
+      logradouro: string
+      numero: string
+      complemento?: string
+      bairro: string
+      cidade: string
+      estado: string
+    }
+    telefone: string
+    email: string
+    contatoEmergencia?: {
+      nome: string
+      telefone: string
+      parentesco?: string
+      email?: string
+    }
+  }
+
+  // Dados profissionais
+  dadosProfissionais: {
+    profissao: string
+    empresa?: string
+    cargo?: string
+    rendaMensal?: number
+    situacaoTrabalhista: 'clt' | 'autonomo' | 'empresario' | 'aposentado' | 'estudante' | 'desempregado'
+    tempoEmpresa?: string
+    registroConselho?: string // CRM, CRO, etc.
+  }
+
+  // Cônjuge (se aplicável)
+  conjuge?: {
+    nome: string
+    cpf: string
+    dataNascimento: string
+    profissao: string
+    rendaMensal?: number
+  }
+
+  // Dependentes
+  dependentes: Array<{
+    nome: string
+    cpf?: string
+    dataNascimento: string
+    grauParentesco: string
+    estudante?: boolean
+    rendimentos?: number
+  }>
+
+  // Dados financeiros
+  dadosFinanceiros: {
+    rendaFamiliar: number
+    patrimonioTotal?: number
+    dadosBancarios: {
+      banco: string
+      agencia: string
+      conta: string
+      tipoConta: 'corrente' | 'poupanca'
+      pix?: string
+    }
+    outrasContas?: Array<{
+      banco: string
+      agencia: string
+      conta: string
+      tipoConta: 'corrente' | 'poupanca'
+    }>
+  }
+
+  // Serviços contratados
+  servicosContratados: Array<{
+    id: string
+    servico: string
+    descricao: string
+    valor: number
+    periodicidade: 'mensal' | 'trimestral' | 'semestral' | 'anual' | 'unico'
+    dataInicio: string
+    dataVencimento?: string
+    status: 'ativo' | 'suspenso' | 'cancelado'
+  }>
+
+  // Documentos
+  documentos: Document[]
+
+  // Histórico de atendimentos
+  atendimentos: Array<{
+    id: string
+    data: string
+    tipo: 'presencial' | 'telefone' | 'email' | 'whatsapp' | 'video_chamada'
+    assunto: string
+    responsavel: string
+    observacoes?: string
+    anexos?: Document[]
+  }>
+
+  // Informações adicionais
+  preferenciasContato: {
+    melhorHorario: string
+    meioPreferido: 'telefone' | 'email' | 'whatsapp'
+    observacoes?: string
+  }
+
+  // Controle
+  status: 'ativo' | 'inativo' | 'suspenso'
+  responsavelComercial: string
+  responsavelOperacional?: string
+  dataCadastro: string
+  dataUltimaAtualizacao?: string
+  observacoes?: string
+
+  // Comentários e anotações
+  comments?: EmployeeComment[]
+}

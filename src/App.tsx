@@ -22,6 +22,7 @@ import EmployeeProfileDemo from './components/Integration/EmployeeProfileDemo'
 import SupabaseInspector from './pages/SupabaseInspector'
 import TaskAssignmentPage from './pages/TaskAssignment'
 import { AdminDashboard } from './pages/AdminDashboard'
+import ImprovedFeedDemo from './pages/ImprovedFeedDemo'
 
 // Componente de loading para Suspense
 const LoadingFallback = () => (
@@ -109,6 +110,7 @@ function App() {
               {/* Demonstração */}
               <Route path="/demo/employee-card" element={<EmployeeCardDemo />} />
               <Route path="/demo/employee-profile" element={<EmployeeProfileDemo />} />
+              <Route path="/demo/improved-feed" element={<ImprovedFeedDemo />} />
               
               {/* Inspetor do Supabase */}
               <Route path="/supabase-inspector" element={<SupabaseInspector />} />
