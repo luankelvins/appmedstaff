@@ -19,24 +19,29 @@ export const Layout = ({ children }: LayoutProps) => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <Header 
-        onToggleSidebar={toggleSidebar} 
-        isSidebarOpen={isSidebarOpen} 
-      />
-      
-      {/* Sidebar */}
-      <Sidebar 
-        isOpen={isSidebarOpen} 
-        onClose={closeSidebar} 
-      />
-      
-      {/* Main content */}
-      <main className="lg:ml-64 transition-all duration-300 ease-in-out">
-        <div className="p-4 lg:p-6">
-          {children}
+      <div className="flex h-screen">
+        {/* Sidebar */}
+        <Sidebar 
+          isOpen={isSidebarOpen} 
+          onClose={closeSidebar} 
+        />
+        
+        {/* Main content area */}
+        <div className="flex-1 flex flex-col lg:ml-64">
+          {/* Header */}
+          <Header 
+            onToggleSidebar={toggleSidebar} 
+            isSidebarOpen={isSidebarOpen} 
+          />
+          
+          {/* Main content */}
+          <main className="flex-1 overflow-auto">
+            <div className="p-4 lg:p-6">
+              {children}
+            </div>
+          </main>
         </div>
-      </main>
+      </div>
     </div>
   )
 }

@@ -146,6 +146,7 @@ export interface TaskSort {
 export interface CreateTaskRequest {
   title: string;
   description?: string;
+  status?: TaskStatus;
   priority: TaskPriority;
   assignedTo?: string;
   dueDate?: Date;
@@ -155,6 +156,7 @@ export interface CreateTaskRequest {
   estimatedHours?: number;
   recurrenceRule?: RecurrenceRule;
   isRecurring?: boolean;
+  leadId?: string; // Para vincular tarefas com leads
 }
 
 export interface UpdateTaskRequest {

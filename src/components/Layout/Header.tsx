@@ -1,9 +1,11 @@
 import React, { useState } from 'react'
-import { Bell, Search, Menu, User, LogOut, Settings } from 'lucide-react'
+import { Bell, Menu, User, LogOut, Settings } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
 import { usePermissions } from '../../hooks/usePermissions'
 import NotificationDropdown from '../Notifications/NotificationDropdown'
 import DirectorNotificationDropdown from '../Notifications/DirectorNotificationDropdown'
+import { ChatNotificationButton } from '../ChatNotificationButton'
+import { QuickTimeClockButtons } from '../TimeTracking/QuickTimeClockButtons'
 
 interface HeaderProps {
   onToggleSidebar: () => void
@@ -21,39 +23,14 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, isSidebarOpen }
   return (
     <header className="bg-white border-b border-gray-200 shadow-sm">
       <div className="flex items-center justify-between px-4 py-3">
-        {/* Left side - Logo and menu toggle */}
-        <div className="flex items-center space-x-4">
+        {/* Menu Toggle */}
+        <div className="flex items-center">
           <button
             onClick={onToggleSidebar}
-            className="p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200 lg:hidden"
+            className="lg:hidden p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
           >
-            <Menu className="w-5 h-5 text-gray-600" />
+            <Menu className="h-6 w-6" />
           </button>
-          
-          <div className="flex items-center space-x-3">
-            <img 
-              src="/medstaff-logo.svg" 
-              alt="MedStaff" 
-              className="h-8 w-auto"
-            />
-            <div className="hidden sm:block">
-              <h1 className="text-lg font-semibold text-medstaff-primary">
-                Plataforma Interna
-              </h1>
-            </div>
-          </div>
-        </div>
-
-        {/* Center - Search */}
-        <div className="hidden md:flex flex-1 max-w-md mx-8">
-          <div className="relative w-full">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Buscar..."
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-medstaff-secondary focus:border-medstaff-secondary"
-            />
-          </div>
         </div>
 
         {/* Right side - Notifications and user menu */}
@@ -61,8 +38,14 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, isSidebarOpen }
           {/* Director Notifications */}
           <DirectorNotificationDropdown />
           
+          {/* Chat Notifications */}
+          <ChatNotificationButton />
+          
           {/* Regular Notifications */}
           <NotificationDropdown />
+
+          {/* Quick Time Clock Buttons */}
+          <QuickTimeClockButtons />
 
           {/* User menu */}
           <div className="relative">

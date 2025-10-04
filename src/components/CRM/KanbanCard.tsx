@@ -32,12 +32,9 @@ interface KanbanCardProps {
 }
 
 const STATUS_CONFIG = {
-  ativo: { label: 'Ativo', color: 'bg-green-100 text-green-800' },
-  em_contato: { label: 'Em Contato', color: 'bg-blue-100 text-blue-800' },
-  aguardando_retorno: { label: 'Aguardando Retorno', color: 'bg-yellow-100 text-yellow-800' },
   qualificado: { label: 'Qualificado', color: 'bg-green-100 text-green-800' },
   nao_qualificado: { label: 'Não Qualificado', color: 'bg-red-100 text-red-800' },
-  perdido: { label: 'Perdido', color: 'bg-gray-100 text-gray-800' }
+  nao_definido: { label: 'Não Definido', color: 'bg-gray-100 text-gray-800' }
 }
 
 const formatTime = (hours: number): string => {

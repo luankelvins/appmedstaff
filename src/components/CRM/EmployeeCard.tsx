@@ -492,7 +492,7 @@ const EmployeeCard: React.FC<EmployeeCardProps> = ({
                 )}
 
                 <div>
-                  <span className="text-gray-600">ID do Funcionário:</span>
+                  <span className="text-gray-600">ID do Membro do Time Interno:</span>
                   <p className="font-medium text-gray-500">#{employee.id}</p>
                 </div>
               </div>
@@ -873,7 +873,7 @@ const EmployeeCard: React.FC<EmployeeCardProps> = ({
                 <Paperclip className="w-5 h-5 text-blue-600 mr-2" />
                 <h3 className="text-lg font-semibold text-blue-800">Anexos e Documentos Adicionais</h3>
               </div>
-              <p className="text-blue-600 text-sm mt-1">Arquivos e documentos complementares do funcionário</p>
+              <p className="text-blue-600 text-sm mt-1">Arquivos e documentos complementares do membro do time interno</p>
             </div>
 
             {/* Anexos Gerais */}

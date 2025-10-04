@@ -1,4 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { supabaseService } from '../services/supabaseService'
+import { supabase } from '../config/supabase'
+import { UserProfile } from '../types/profile'
+import type { User as SupabaseUser, AuthChangeEvent, Session } from '@supabase/supabase-js'
 
 export interface User {
   id: string
@@ -17,6 +21,7 @@ interface AuthContextType {
   logout: () => void
   loading: boolean
   isAuthenticated: boolean
+  signUp: (email: string, password: string, userData: Partial<UserProfile>) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -33,60 +38,105 @@ interface AuthProviderProps {
   children: ReactNode
 }
 
+// Função para converter UserProfile para User (compatibilidade)
+const mapProfileToUser = (profile: UserProfile): User => {
+  return {
+    id: profile.id,
+    name: profile.name,
+    email: profile.email,
+    avatar: profile.avatar,
+    role: profile.role || 'user',
+    permissions: profile.permissions || [],
+    department: profile.department,
+    position: profile.position
+  }
+}
+
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // Mock user para desenvolvimento
-  const mockUser: User = {
-    id: '1',
-    name: 'João Silva',
-    email: 'joao.silva@medstaff.com.br',
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
-    role: 'SuperAdmin',
-    permissions: ['*'], // SuperAdmin tem todas as permissões
-    department: 'Tecnologia',
-    position: 'Desenvolvedor Senior'
-  }
-
   useEffect(() => {
-    // Simular carregamento inicial
-    const timer = setTimeout(() => {
-      setUser(mockUser)
-      setLoading(false)
-    }, 1000)
+    // Verificar se há uma sessão ativa
+    const checkSession = async () => {
+      try {
+        const session = await supabaseService.getCurrentSession()
+        if (session?.user) {
+          // Buscar perfil do usuário
+          const profile = await supabaseService.getProfile(session.user.id)
+          if (profile) {
+            setUser(mapProfileToUser(profile))
+          }
+        }
+      } catch (error) {
+        console.error('Erro ao verificar sessão:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
 
-    return () => clearTimeout(timer)
+    checkSession()
+
+    // Escutar mudanças na autenticação
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event: AuthChangeEvent, session: Session | null) => {
+        if (event === 'SIGNED_IN' && session?.user) {
+          try {
+            const profile = await supabaseService.getProfile(session.user.id)
+            if (profile) {
+              setUser(mapProfileToUser(profile))
+            }
+          } catch (error) {
+            console.error('Erro ao buscar perfil:', error)
+          }
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null)
+        }
+        setLoading(false)
+      }
+    )
+
+    return () => {
+      subscription.unsubscribe()
+    }
   }, [])
 
   const login = async (email: string, password: string) => {
     setLoading(true)
     try {
-      // Simular chamada de API
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      // Mock login - em produção, validar credenciais
-      if (email && password) {
-        setUser(mockUser)
-      } else {
-        throw new Error('Credenciais inválidas')
-      }
+      await supabaseService.signIn(email, password)
+      // O usuário será definido automaticamente pelo listener onAuthStateChange
     } catch (error) {
-      throw error
-    } finally {
       setLoading(false)
+      throw error
     }
   }
 
-  const logout = () => {
-    setUser(null)
-    // Limpar localStorage, cookies, etc.
+  const logout = async () => {
+    try {
+      await supabaseService.signOut()
+      setUser(null)
+    } catch (error) {
+      console.error('Erro ao fazer logout:', error)
+    }
+  }
+
+  const signUp = async (email: string, password: string, userData: Partial<UserProfile>) => {
+    setLoading(true)
+    try {
+      await supabaseService.signUp(email, password, userData)
+      // O usuário será definido automaticamente pelo listener onAuthStateChange
+    } catch (error) {
+      setLoading(false)
+      throw error
+    }
   }
 
   const value: AuthContextType = {
     user,
     login,
     logout,
+    signUp,
     loading,
     isAuthenticated: !!user
   }

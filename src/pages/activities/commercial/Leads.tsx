@@ -34,6 +34,9 @@ const Leads: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStage, setFilterStage] = useState<LeadPipelineStage | 'all'>('all')
   const [filterResponsavel, setFilterResponsavel] = useState<string>('all')
+  const [filterPeriod, setFilterPeriod] = useState<'all' | 'hoje' | 'semana' | 'mes' | 'custom'>('all')
+  const [customDateStart, setCustomDateStart] = useState('')
+  const [customDateEnd, setCustomDateEnd] = useState('')
   const [stats, setStats] = useState<LeadPipelineStats | null>(null)
   const [viewMode, setViewMode] = useState<'list' | 'kanban'>('kanban')
   const [selectedLead, setSelectedLead] = useState<LeadPipelineCardType | null>(null)
@@ -221,7 +224,7 @@ const Leads: React.FC = () => {
   const handleLeadSubmit = async (leadData: LeadFormType) => {
     try {
       // Usar o serviço compartilhado para criar o lead
-      leadsService.createLead(leadData)
+      await leadsService.createLead(leadData)
       setShowLeadForm(false)
     } catch (error) {
       console.error('Erro ao criar lead:', error)
@@ -308,6 +311,30 @@ const Leads: React.FC = () => {
     }
   }
 
+  // Função para verificar se uma data está dentro do período selecionado
+  const isDateInPeriod = (date: Date) => {
+    const now = new Date()
+    const leadDate = new Date(date)
+    
+    switch (filterPeriod) {
+      case 'hoje':
+        return leadDate.toDateString() === now.toDateString()
+      case 'semana':
+        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+        return leadDate >= weekAgo && leadDate <= now
+      case 'mes':
+        const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+        return leadDate >= monthAgo && leadDate <= now
+      case 'custom':
+        if (!customDateStart || !customDateEnd) return true
+        const startDate = new Date(customDateStart)
+        const endDate = new Date(customDateEnd)
+        return leadDate >= startDate && leadDate <= endDate
+      default:
+        return true
+    }
+  }
+
   const filteredLeads = leadCards.filter(card => {
     const matchesSearch = card.leadData.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          card.leadData.empresa?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -315,8 +342,9 @@ const Leads: React.FC = () => {
     
     const matchesStage = filterStage === 'all' || card.currentStage === filterStage
     const matchesResponsavel = filterResponsavel === 'all' || card.responsavelAtual === filterResponsavel
+    const matchesPeriod = filterPeriod === 'all' || isDateInPeriod(card.dataCriacao)
 
-    return matchesSearch && matchesStage && matchesResponsavel
+    return matchesSearch && matchesStage && matchesResponsavel && matchesPeriod
   })
 
   const responsaveis = Array.from(new Set(leadCards.map(card => card.responsavelAtual)))
@@ -439,7 +467,7 @@ const Leads: React.FC = () => {
 
       {/* Filtros */}
       <div className="bg-white p-4 rounded-lg shadow border">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
             <input
@@ -477,12 +505,48 @@ const Leads: React.FC = () => {
               </option>
             ))}
           </select>
+
+          <select
+            value={filterPeriod}
+            onChange={(e) => setFilterPeriod(e.target.value as 'all' | 'hoje' | 'semana' | 'mes' | 'custom')}
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="all">Todos os períodos</option>
+            <option value="hoje">Hoje</option>
+            <option value="semana">Última semana</option>
+            <option value="mes">Último mês</option>
+            <option value="custom">Período personalizado</option>
+          </select>
           
           <div className="flex items-center space-x-2 text-sm text-gray-600">
             <Filter size={16} />
             <span>{filteredLeads.length} de {leadCards.length} leads</span>
           </div>
         </div>
+
+        {/* Filtro de data personalizado */}
+        {filterPeriod === 'custom' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-gray-200">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Data inicial</label>
+              <input
+                type="date"
+                value={customDateStart}
+                onChange={(e) => setCustomDateStart(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Data final</label>
+              <input
+                type="date"
+                value={customDateEnd}
+                onChange={(e) => setCustomDateEnd(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Visualização de Leads */}

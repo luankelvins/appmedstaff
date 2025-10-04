@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { usePermissions } from '../hooks/usePermissions'
 import { Loading } from '../components/UI/Loading'
 import LeadForm from '../components/CRM/LeadForm'
-import { LeadForm as LeadFormType } from '../types/crm'
+import { LeadForm as LeadFormType, LeadPipelineStage } from '../types/crm'
 import leadsService, { ContactLead } from '../services/leadsService'
 import { 
   Plus,
@@ -31,7 +31,8 @@ interface Contact {
   address?: string
   city?: string
   state?: string
-  status: 'ativo' | 'inativo' | 'prospecto'
+  status: 'ativo' | 'inativo' | 'prospecto' | 'novo' | 'contatado' | 'qualificado' | 'proposta' | 'negociacao' | 'ganho' | 'perdido'
+  pipelineStage?: LeadPipelineStage
   createdAt: Date
   lastContact?: Date
   notes?: string
@@ -78,7 +79,8 @@ const mockContacts: Contact[] = [
     position: 'Diretora Médica',
     city: 'São Paulo',
     state: 'SP',
-    status: 'prospecto',
+    status: 'qualificado',
+    pipelineStage: 'ligacao_1',
     createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
     notes: 'Interessada em nossos serviços de consultoria'
   },
@@ -111,6 +113,53 @@ const mockContacts: Contact[] = [
     createdAt: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000),
     lastContact: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000),
     notes: 'Parceiro tecnológico para soluções digitais'
+  },
+  {
+    id: '6',
+    name: 'Dr. Carlos Oliveira',
+    email: 'carlos.oliveira@clinica.com',
+    phone: '(11) 77777-7777',
+    type: 'lead',
+    company: 'Clínica Oliveira',
+    position: 'Médico Ortopedista',
+    city: 'Rio de Janeiro',
+    state: 'RJ',
+    status: 'novo',
+    pipelineStage: 'novo_lead',
+    createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+    notes: 'Interessado em abertura de PJ'
+  },
+  {
+    id: '7',
+    name: 'Dra. Ana Costa',
+    email: 'ana.costa@email.com',
+    phone: '(11) 66666-6666',
+    type: 'lead',
+    company: 'Consultório Ana Costa',
+    position: 'Dermatologista',
+    city: 'Belo Horizonte',
+    state: 'MG',
+    status: 'contatado',
+    pipelineStage: 'ligacao_2',
+    createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+    lastContact: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
+    notes: 'Já foi contatada, aguardando retorno'
+  },
+  {
+    id: '8',
+    name: 'Dr. Pedro Silva',
+    email: 'pedro.silva@hospital.com',
+    phone: '(11) 55555-5555',
+    type: 'lead',
+    company: 'Hospital Regional',
+    position: 'Cirurgião',
+    city: 'Brasília',
+    state: 'DF',
+    status: 'perdido',
+    pipelineStage: 'desfecho',
+    createdAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000),
+    lastContact: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
+    notes: 'Não demonstrou interesse nos serviços'
   }
 ]
 
@@ -138,9 +187,9 @@ const Contacts: React.FC = () => {
   }, [])
 
   // Função para lidar com o envio do formulário de lead
-  const handleLeadSubmit = (leadData: LeadFormType) => {
+  const handleLeadSubmit = async (leadData: LeadFormType) => {
     try {
-      leadsService.createLead(leadData)
+      await leadsService.createLead(leadData)
       setShowLeadForm(false)
     } catch (error) {
       console.error('Erro ao criar lead:', error)
@@ -209,6 +258,58 @@ const Contacts: React.FC = () => {
         return 'bg-red-100 text-red-800'
       case 'prospecto':
         return 'bg-yellow-100 text-yellow-800'
+      case 'novo':
+        return 'bg-blue-100 text-blue-800'
+      case 'contatado':
+        return 'bg-purple-100 text-purple-800'
+      case 'qualificado':
+        return 'bg-green-100 text-green-800'
+      case 'proposta':
+        return 'bg-orange-100 text-orange-800'
+      case 'negociacao':
+        return 'bg-yellow-100 text-yellow-800'
+      case 'ganho':
+        return 'bg-emerald-100 text-emerald-800'
+      case 'perdido':
+        return 'bg-red-100 text-red-800'
+      default:
+        return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  const getPipelineStageLabel = (stage: LeadPipelineStage) => {
+    switch (stage) {
+      case 'novo_lead':
+        return 'Novo Lead'
+      case 'ligacao_1':
+        return '1ª Ligação'
+      case 'ligacao_2':
+        return '2ª Ligação'
+      case 'mensagem':
+        return 'Mensagem Enviada'
+      case 'recontato':
+        return 'Recontato'
+      case 'desfecho':
+        return 'Desfecho'
+      default:
+        return stage
+    }
+  }
+
+  const getPipelineStageColor = (stage: LeadPipelineStage) => {
+    switch (stage) {
+      case 'novo_lead':
+        return 'bg-blue-100 text-blue-800'
+      case 'ligacao_1':
+        return 'bg-purple-100 text-purple-800'
+      case 'ligacao_2':
+        return 'bg-indigo-100 text-indigo-800'
+      case 'mensagem':
+        return 'bg-cyan-100 text-cyan-800'
+      case 'recontato':
+        return 'bg-yellow-100 text-yellow-800'
+      case 'desfecho':
+        return 'bg-gray-100 text-gray-800'
       default:
         return 'bg-gray-100 text-gray-800'
     }
@@ -400,99 +501,196 @@ const Contacts: React.FC = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Contato
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Tipo
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Contato
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Localização
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Último Contato
-                  </th>
-                  {(canUpdateContacts() || canDeleteContacts()) && (
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Ações
-                    </th>
+                  {activeTab === 'leads' ? (
+                    // Cabeçalhos específicos para Leads
+                    <>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Nome
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Telefone
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Email
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Etapa do Pipeline
+                      </th>
+                      {(canUpdateContacts() || canDeleteContacts()) && (
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Ações
+                        </th>
+                      )}
+                    </>
+                  ) : (
+                    // Cabeçalhos padrão para outros contatos
+                    <>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Contato
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Tipo
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Contato
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Localização
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Último Contato
+                      </th>
+                      {(canUpdateContacts() || canDeleteContacts()) && (
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Ações
+                        </th>
+                      )}
+                    </>
                   )}
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredContacts.map((contact) => (
                   <tr key={contact.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4">
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">
-                          {contact.name}
-                        </div>
-                        {contact.company && (
-                          <div className="text-sm text-gray-500">
-                            {contact.company}
+                    {activeTab === 'leads' ? (
+                      // Layout específico para Leads
+                      <>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(contact.status)}`}>
+                            {contact.status.charAt(0).toUpperCase() + contact.status.slice(1)}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">
+                              {contact.name}
+                            </div>
+                            {contact.company && (
+                              <div className="text-sm text-gray-500">
+                                {contact.company}
+                              </div>
+                            )}
+                            {contact.position && (
+                              <div className="text-sm text-gray-500">
+                                {contact.position}
+                              </div>
+                            )}
                           </div>
-                        )}
-                        {contact.position && (
-                          <div className="text-sm text-gray-500">
-                            {contact.position}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center text-sm text-gray-900">
+                            <Phone className="w-4 h-4 mr-2 text-gray-400" />
+                            {contact.phone}
                           </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center text-sm text-gray-900">
+                            <Mail className="w-4 h-4 mr-2 text-gray-400" />
+                            {contact.email}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {contact.pipelineStage ? (
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPipelineStageColor(contact.pipelineStage)}`}>
+                              {getPipelineStageLabel(contact.pipelineStage)}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400 text-sm">-</span>
+                          )}
+                        </td>
+                        {(canUpdateContacts() || canDeleteContacts()) && (
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <div className="flex space-x-2">
+                              {canUpdateContacts() && (
+                                <button className="text-blue-600 hover:text-blue-900">
+                                  <Edit className="w-4 h-4" />
+                                </button>
+                              )}
+                              {canDeleteContacts() && (
+                                <button className="text-red-600 hover:text-red-900">
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+                          </td>
                         )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTypeColor(contact.type)}`}>
-                        {getTypeLabel(contact.type)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(contact.status)}`}>
-                        {contact.status.charAt(0).toUpperCase() + contact.status.slice(1)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="space-y-1">
-                        <div className="flex items-center text-sm text-gray-900">
-                          <Mail className="w-4 h-4 mr-2 text-gray-400" />
-                          {contact.email}
-                        </div>
-                        <div className="flex items-center text-sm text-gray-900">
-                          <Phone className="w-4 h-4 mr-2 text-gray-400" />
-                          {contact.phone}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      {contact.city && contact.state && (
-                        <div className="flex items-center text-sm text-gray-900">
-                          <MapPin className="w-4 h-4 mr-2 text-gray-400" />
-                          {contact.city}, {contact.state}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {contact.lastContact ? formatDate(contact.lastContact) : '-'}
-                    </td>
-                    {(canUpdateContacts() || canDeleteContacts()) && (
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex space-x-2">
-                          {canUpdateContacts() && (
-                            <button className="text-blue-600 hover:text-blue-900">
-                              <Edit className="w-4 h-4" />
-                            </button>
+                      </>
+                    ) : (
+                      // Layout padrão para outros contatos
+                      <>
+                        <td className="px-6 py-4">
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">
+                              {contact.name}
+                            </div>
+                            {contact.company && (
+                              <div className="text-sm text-gray-500">
+                                {contact.company}
+                              </div>
+                            )}
+                            {contact.position && (
+                              <div className="text-sm text-gray-500">
+                                {contact.position}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTypeColor(contact.type)}`}>
+                            {getTypeLabel(contact.type)}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(contact.status)}`}>
+                            {contact.status.charAt(0).toUpperCase() + contact.status.slice(1)}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="space-y-1">
+                            <div className="flex items-center text-sm text-gray-900">
+                              <Mail className="w-4 h-4 mr-2 text-gray-400" />
+                              {contact.email}
+                            </div>
+                            <div className="flex items-center text-sm text-gray-900">
+                              <Phone className="w-4 h-4 mr-2 text-gray-400" />
+                              {contact.phone}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          {contact.city && contact.state && (
+                            <div className="flex items-center text-sm text-gray-900">
+                              <MapPin className="w-4 h-4 mr-2 text-gray-400" />
+                              {contact.city}, {contact.state}
+                            </div>
                           )}
-                          {canDeleteContacts() && (
-                            <button className="text-red-600 hover:text-red-900">
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {contact.lastContact ? formatDate(contact.lastContact) : '-'}
+                        </td>
+                        {(canUpdateContacts() || canDeleteContacts()) && (
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <div className="flex space-x-2">
+                              {canUpdateContacts() && (
+                                <button className="text-blue-600 hover:text-blue-900">
+                                  <Edit className="w-4 h-4" />
+                                </button>
+                              )}
+                              {canDeleteContacts() && (
+                                <button className="text-red-600 hover:text-red-900">
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        )}
+                      </>
                     )}
                   </tr>
                 ))}

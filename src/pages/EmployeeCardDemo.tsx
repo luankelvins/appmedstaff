@@ -139,6 +139,7 @@ const mockEmployee: TimeInternoForm = {
       categoria: 'certificado'
     }
   ],
+  documentosObrigatorios: [],
   observacoesAnexos: 'Documentos complementares para comprovação de especialização'
 }
 
@@ -218,6 +219,7 @@ const mockEmployee2: TimeInternoForm = {
   ],
   anexosNotificacoes: [],
   anexos: [],
+  documentosObrigatorios: [],
   observacoesAnexos: ''
 }
 
@@ -242,14 +244,14 @@ const EmployeeCardDemo: React.FC = () => {
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Demonstração - Cards de Funcionários
+            Demonstração - Cards do Time Interno
           </h1>
           <p className="text-gray-600">
-            Visualização moderna e intuitiva dos perfis dos funcionários
+            Visualização moderna e intuitiva dos perfis dos membros do time interno
           </p>
         </div>
 
-        {/* Lista de Funcionários */}
+        {/* Lista de Membros do Time Interno */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           {employees.map((employee, index) => (
             <div

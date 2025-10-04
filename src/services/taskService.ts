@@ -20,6 +20,7 @@ import {
   RecurrenceEditMode
 } from '../types/task';
 import { notificationService } from './notificationService';
+import { supabase } from '../config/supabase';
 
 // Mock data para desenvolvimento
 const mockTasks: Task[] = [
@@ -141,43 +142,94 @@ class TaskService {
   }
 
   async createTask(request: CreateTaskRequest, createdBy: string): Promise<Task> {
-    const newTask: Task = {
-      id: Date.now().toString(),
-      title: request.title,
-      description: request.description,
-      status: TaskStatus.TODO,
-      priority: request.priority,
-      assignedTo: request.assignedTo,
-      createdBy,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      dueDate: request.dueDate,
-      tags: request.tags || [],
-      attachments: [],
-      comments: [],
-      estimatedHours: request.estimatedHours,
-      category: request.category,
-      project: request.project,
-      isRecurring: request.isRecurring,
-      recurrenceRule: request.recurrenceRule
+    try {
+      // Criar tarefa no banco de dados Supabase
+      const taskData = {
+        title: request.title,
+        description: request.description,
+        status: request.status || 'pending',
+        priority: request.priority || 'medium',
+        assigned_to: request.assignedTo,
+        created_by: createdBy,
+        due_date: request.dueDate?.toISOString(),
+        tags: request.tags || [],
+        metadata: {
+          category: request.category,
+          project: request.project,
+          estimatedHours: request.estimatedHours,
+          leadId: request.leadId // Para vincular com leads
+        }
+      };
+
+      const { data, error } = await supabase
+        .from('tasks')
+        .insert(taskData)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Erro ao criar tarefa no banco:', error);
+        throw new Error('Falha ao criar tarefa no banco de dados');
+      }
+
+      // Mapear dados do banco para o tipo Task
+      const newTask: Task = {
+        id: data.id,
+        title: data.title,
+        description: data.description || '',
+        status: data.status as TaskStatus,
+        priority: data.priority as TaskPriority,
+        assignedTo: data.assigned_to,
+        assignedBy: createdBy,
+        createdBy: data.created_by,
+        createdAt: new Date(data.created_at),
+        updatedAt: new Date(data.updated_at),
+        dueDate: data.due_date ? new Date(data.due_date) : undefined,
+        tags: data.tags || [],
+        attachments: [],
+        comments: [],
+        estimatedHours: data.metadata?.estimatedHours,
+        category: data.metadata?.category,
+        project: data.metadata?.project
+      };
+
+      // Adicionar à lista local para compatibilidade
+      this.tasks.push(newTask);
+
+      // Enviar notificação se a tarefa foi atribuída
+      if (newTask.assignedTo && newTask.assignedTo !== createdBy) {
+        await this.sendAssignmentNotification(newTask, newTask.assignedTo);
+      }
+
+      return newTask;
+    } catch (error) {
+      console.error('Erro ao criar tarefa:', error);
+      throw error;
+    }
+  }
+
+  // Método específico para criar tarefas de leads
+  async createLeadTask(
+    leadId: string,
+    title: string,
+    description: string,
+    assignedTo: string,
+    createdBy: string,
+    dueDate?: Date,
+    priority: TaskPriority = TaskPriority.MEDIUM
+  ): Promise<Task> {
+    const request: CreateTaskRequest = {
+      title,
+      description,
+      assignedTo,
+      dueDate,
+      priority,
+      category: 'Lead',
+      project: 'Pipeline de Leads',
+      leadId
     };
 
-    this.tasks.push(newTask);
-
-    // Se é uma tarefa recorrente, criar série de recorrência
-    if (request.isRecurring && request.recurrenceRule) {
-      await this.createRecurrenceSeries({
-        templateTask: request,
-        recurrenceRule: request.recurrenceRule
-      }, createdBy);
-    }
-
-    // Send notification to assignee if task is assigned
-    if (newTask.assignedTo && newTask.assignedTo !== createdBy) {
-      await this.sendAssignmentNotification(newTask, newTask.assignedTo);
-    }
-
-    return newTask;
+    return this.createTask(request, createdBy);
   }
 
   async updateTask(id: string, request: UpdateTaskRequest): Promise<Task | null> {

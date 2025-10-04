@@ -1,30 +1,35 @@
-import { usePermissions } from '../hooks/usePermissions'
-import { useAuth } from '../contexts/AuthContext'
-import MainDashboard from '../components/Dashboard/MainDashboard'
+import React from 'react';
+import { usePermissions } from '../hooks/usePermissions';
+import { useAuth } from '../contexts/AuthContext';
+import MainDashboard from '../components/Dashboard/MainDashboard';
 
 export const Dashboard = () => {
-  console.log('🚀 Dashboard - Componente iniciado com MainDashboard')
-  
-  const { canViewDashboard } = usePermissions()
-  const { user } = useAuth()
+  const { user } = useAuth();
+  const { hasPermission } = usePermissions();
 
-  if (!canViewDashboard()) {
+  // Verificar se o usuário tem permissão para acessar o dashboard
+  if (!hasPermission('dashboard.view')) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-gray-500">Você não tem permissão para acessar o dashboard.</p>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Acesso Negado</h2>
+          <p className="text-gray-600">Você não tem permissão para acessar esta página.</p>
+        </div>
       </div>
-    )
+    );
   }
 
   return (
-    <div className="p-6">
-      <MainDashboard 
-        userId={user?.id || 'user-1'}
-        userRole={user?.role || 'analista'}
-        className="max-w-7xl mx-auto"
-      />
+    <div className="min-h-screen bg-gray-50">
+      <div className="p-6">
+        <MainDashboard 
+          className="max-w-7xl mx-auto"
+          userId={user?.id || 'user-1'}
+          userRole={user?.role || 'analista'}
+        />
+      </div>
     </div>
-  )
+  );
 }
 
 export default Dashboard

@@ -341,7 +341,7 @@ export const Organogram: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all')
 
-  // Filtrar funcionários baseado na busca e departamento
+  // Filtrar membros do time interno baseado na busca e departamento
   const filteredEmployees = employees.map(employee => {
     const filterEmployee = (emp: Employee): Employee | null => {
       const matchesSearch = emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -477,6 +477,8 @@ export const Organogram: React.FC = () => {
         }
       },
       documentos: [],
+      documentosObrigatorios: [],
+      anexos: [],
       anexosNotificacoes: [],
       status: 'ativo',
       responsavelRH: ''
@@ -486,9 +488,9 @@ export const Organogram: React.FC = () => {
   }
 
   const handleDelete = (id: string) => {
-    if (confirm('Tem certeza que deseja remover este funcionário?')) {
+    if (confirm('Tem certeza que deseja remover este membro do time interno?')) {
       // Implementar lógica de remoção
-      console.log('Removendo funcionário:', id)
+      console.log('Removendo membro do time interno:', id)
     }
   }
 
@@ -532,7 +534,7 @@ export const Organogram: React.FC = () => {
           <div className="relative">
             <input
               type="text"
-              placeholder="Buscar funcionário..."
+              placeholder="Buscar membro do time interno..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full sm:w-64"
@@ -609,7 +611,7 @@ export const Organogram: React.FC = () => {
         <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg p-4 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-purple-100 text-sm">Total de Funcionários</p>
+              <p className="text-purple-100 text-sm">Total do Time Interno</p>
               <p className="text-2xl font-bold">{employees.reduce((acc, emp) => acc + countEmployees(emp), 0)}</p>
             </div>
             <Users className="h-8 w-8 text-purple-200" />
@@ -721,17 +723,17 @@ export const Organogram: React.FC = () => {
       {/* Resultados da busca */}
       {searchTerm && (
         <div className="text-sm text-gray-600">
-          Mostrando resultados para "{searchTerm}" - {getAllEmployeesFlat(filteredEmployees).length} funcionário(s) encontrado(s)
+          Mostrando resultados para "{searchTerm}" - {getAllEmployeesFlat(filteredEmployees).length} membro(s) encontrado(s)
         </div>
       )}
 
-      {/* Modal para adicionar/editar funcionário usando TimeInternoForm */}
+      {/* Modal para adicionar/editar membro do time interno usando TimeInternoForm */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-semibold">
-                {selectedEmployee ? 'Editar Funcionário' : 'Adicionar Funcionário'}
+                {selectedEmployee ? 'Editar Membro do Time Interno' : 'Adicionar Membro do Time Interno'}
               </h2>
               <button
                 onClick={() => setIsModalOpen(false)}
@@ -749,12 +751,12 @@ export const Organogram: React.FC = () => {
         </div>
       )}
 
-      {/* Modal para visualizar detalhes do funcionário usando EmployeeCard */}
+      {/* Modal para visualizar detalhes do membro do time interno usando EmployeeCard */}
       {isViewModalOpen && viewEmployeeData && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold">Detalhes do Funcionário</h2>
+              <h2 className="text-lg font-semibold">Detalhes do Membro do Time Interno</h2>
               <button
                 onClick={() => setIsViewModalOpen(false)}
                 className="text-gray-400 hover:text-gray-600"

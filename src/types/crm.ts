@@ -496,7 +496,7 @@ export interface FormSection {
   fields: FormField[]
 }
 
-// Interfaces para Sistema de Comentários do Funcionário
+// Interfaces para Sistema de Comentários do Membro do Time Interno
 export interface EmployeeComment {
   id: string
   employeeId: string
@@ -515,7 +515,7 @@ export interface EmployeeComment {
   priority: 'baixa' | 'media' | 'alta' | 'urgente'
   status: 'ativo' | 'arquivado' | 'resolvido'
   expirationDate?: string // Para avisos temporários
-  requiresAcknowledgment?: boolean // Se requer confirmação de leitura do funcionário
+  requiresAcknowledgment?: boolean // Se requer confirmação de leitura do membro do time interno
   acknowledgmentDate?: string
   relatedComments?: string[] // IDs de comentários relacionados
 }
@@ -726,12 +726,9 @@ export type LeadPipelineStage =
   | 'desfecho'
 
 export type LeadStatus = 
-  | 'ativo'
-  | 'em_contato'
-  | 'aguardando_retorno'
   | 'qualificado'
   | 'nao_qualificado'
-  | 'perdido'
+  | 'nao_definido'
 
 export type TaskStatus = 
   | 'pendente'
@@ -830,6 +827,7 @@ export interface LeadTask {
   dataCriacao: Date
   dataConclusao?: Date
   observacoes?: string
+  taskDatabaseId?: string // ID da tarefa no banco de dados
   
   // Auto-redistribuição
   tentativasRedistribuicao: number

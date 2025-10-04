@@ -9,6 +9,7 @@ import Profile from './pages/Profile'
 import CRMForms from './pages/CRMForms'
 import { Commercial, Operational, Benefits } from './pages/activities'
 import Leads from './pages/activities/commercial/Leads'
+import ContactsLeads from './pages/contacts/Leads'
 import { Organogram, Administrative, Financial, Relationship } from './pages/company'
 import { HeMet, ClinicConsulting } from './pages/business'
 import { FinancialConsultingPF, PensionRestitution, HousingAssistance, TaxRecovery } from './pages/partners'
@@ -17,6 +18,10 @@ import Notifications from './pages/Notifications'
 import { Chat } from './pages/Chat'
 import RecurringSeries from './pages/RecurringSeries'
 import EmployeeCardDemo from './pages/EmployeeCardDemo'
+import EmployeeProfileDemo from './components/Integration/EmployeeProfileDemo'
+import SupabaseInspector from './pages/SupabaseInspector'
+import TaskAssignmentPage from './pages/TaskAssignment'
+import { AdminDashboard } from './pages/AdminDashboard'
 
 // Componente de loading para Suspense
 const LoadingFallback = () => (
@@ -65,7 +70,9 @@ function App() {
             <Route path="/tasks/calendar" element={<TasksPageWrapper />} />
             <Route path="/tasks/projects" element={<Projects />} />
             <Route path="/tasks/recurring" element={<RecurringSeries />} />
+            <Route path="/tasks/assignment" element={<TaskAssignmentPage />} />
           <Route path="/contacts/*" element={<Contacts />} />
+          <Route path="/contacts/leads" element={<ContactsLeads />} />
           <Route path="/crm/forms" element={<CRMForms />} />
           <Route path="/activities/commercial" element={<Commercial />} />
           <Route path="/activities/commercial/leads" element={<Leads />} />
@@ -84,6 +91,9 @@ function App() {
               <Route path="/partners/housing-assistance" element={<HousingAssistance />} />
               <Route path="/partners/tax-recovery" element={<TaxRecovery />} />
               
+              {/* Administração */}
+              <Route path="/admin" element={<AdminDashboard />} />
+              
               {/* Auditoria */}
               <Route path="/audit" element={<Audit />} />
               
@@ -98,6 +108,10 @@ function App() {
               
               {/* Demonstração */}
               <Route path="/demo/employee-card" element={<EmployeeCardDemo />} />
+              <Route path="/demo/employee-profile" element={<EmployeeProfileDemo />} />
+              
+              {/* Inspetor do Supabase */}
+              <Route path="/supabase-inspector" element={<SupabaseInspector />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>

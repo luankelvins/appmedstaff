@@ -8,6 +8,7 @@ import {
   ProfileStats,
   TrustedDevice
 } from '../types/profile'
+import { employeeIntegrationService } from './employeeIntegrationService'
 
 // Mock data para demonstração
 const mockProfile: UserProfile = {
@@ -186,7 +187,19 @@ const mockStats: ProfileStats = {
 export const profileService = {
   async getProfile(): Promise<UserProfile> {
     await new Promise(resolve => setTimeout(resolve, 300))
-    return { ...mockProfile }
+    
+    // Simular obtenção do email do usuário logado (em produção viria do contexto de autenticação)
+    const currentUserEmail = mockProfile.email
+    
+    try {
+      // Tentar integrar com dados do membro do time interno
+      const integratedProfile = await employeeIntegrationService.getIntegratedProfile(currentUserEmail)
+      return integratedProfile
+    } catch (error) {
+      console.warn('Não foi possível integrar dados do membro do time interno:', error)
+      // Retornar perfil padrão se a integração falhar
+      return { ...mockProfile }
+    }
   },
 
   async updateProfile(data: ProfileUpdateRequest): Promise<UserProfile> {

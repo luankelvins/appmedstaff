@@ -74,5 +74,32 @@ export const PERMISSIONS = {
   // Auditoria & RBAC
   RBAC_ROLE_MANAGE: 'rbac.role.manage',
   RBAC_USER_MANAGE: 'rbac.user.manage',
-  AUDIT_READ: 'audit.read'
+  AUDIT_READ: 'audit.read',
+
+  // Administração e RH
+  ADMIN_ACCESS: 'admin.access',
+  ADMIN_DASHBOARD_VIEW: 'admin.dashboard.view',
+  ADMIN_EMPLOYEES_VIEW: 'admin.employees.view',
+  ADMIN_EMPLOYEES_CREATE: 'admin.employees.create',
+  ADMIN_EMPLOYEES_UPDATE: 'admin.employees.update',
+  ADMIN_EMPLOYEES_DELETE: 'admin.employees.delete',
+  ADMIN_DEPARTMENTS_VIEW: 'admin.departments.view',
+  ADMIN_DEPARTMENTS_CREATE: 'admin.departments.create',
+  ADMIN_DEPARTMENTS_UPDATE: 'admin.departments.update',
+  ADMIN_DEPARTMENTS_DELETE: 'admin.departments.delete',
+  
+  // Controle de Ponto
+  TIMETRACKING_VIEW: 'timetracking.view',
+  TIMETRACKING_CLOCK_IN: 'timetracking.clock.in',
+  TIMETRACKING_CLOCK_OUT: 'timetracking.clock.out',
+  TIMETRACKING_REPORTS_VIEW: 'timetracking.reports.view',
+  TIMETRACKING_REPORTS_EXPORT: 'timetracking.reports.export',
+  TIMETRACKING_ADMIN: 'timetracking.admin',
+  TIMETRACKING_SCHEDULES_MANAGE: 'timetracking.schedules.manage',
+  
+  // Horários de Trabalho
+  WORK_SCHEDULES_VIEW: 'work.schedules.view',
+  WORK_SCHEDULES_CREATE: 'work.schedules.create',
+  WORK_SCHEDULES_UPDATE: 'work.schedules.update',
+  WORK_SCHEDULES_DELETE: 'work.schedules.delete'
 } as const

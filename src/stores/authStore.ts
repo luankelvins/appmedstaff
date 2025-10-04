@@ -2,6 +2,8 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { User, LoginCredentials, AuthResponse, PermissionSlug } from '../types/auth'
 import { authService } from '../services/authService'
+import { supabaseService } from '../services/supabaseService'
+import { UserProfile } from '../types/profile'
 
 interface AuthState {
   user: User | null
@@ -20,6 +22,36 @@ interface AuthActions {
   hasAnyPermission: (permissions: PermissionSlug[]) => boolean
   hasRole: (roleSlug: string) => boolean
   clearError: () => void
+  signUp: (email: string, password: string, userData: Partial<UserProfile>) => Promise<void>
+}
+
+// Função para converter UserProfile para User (compatibilidade)
+const mapProfileToUser = (profile: UserProfile): User => {
+  return {
+    id: profile.id,
+    name: profile.name,
+    email: profile.email,
+    avatar: profile.avatar,
+    role: {
+      id: '1',
+      name: profile.role || 'user',
+      slug: profile.role || 'user',
+      description: 'Usuário padrão',
+      level: 'operational' as const,
+      permissions: []
+    },
+    permissions: (profile.permissions || []).map(perm => ({
+      id: perm,
+      name: perm,
+      slug: perm as PermissionSlug,
+      module: 'general',
+      action: 'view' as const,
+      description: perm
+    })),
+    isActive: true,
+    createdAt: profile.createdAt || new Date().toISOString(),
+    updatedAt: profile.updatedAt || new Date().toISOString()
+  }
 }
 
 type AuthStore = AuthState & AuthActions
@@ -104,6 +136,28 @@ export const useAuthStore = create<AuthStore>()(
         const { user } = get()
         if (!user) return false
         return user.role.slug === roleSlug
+      },
+
+      signUp: async (email: string, password: string, userData: Partial<UserProfile>) => {
+        try {
+          set({ isLoading: true, error: null })
+          
+          await supabaseService.signUp(email, password, userData)
+          
+          set({
+            isLoading: false,
+            error: null,
+          })
+        } catch (error) {
+          set({
+            user: null,
+            token: null,
+            isAuthenticated: false,
+            isLoading: false,
+            error: error instanceof Error ? error.message : 'Erro ao criar conta',
+          })
+          throw error
+        }
       },
     }),
     {

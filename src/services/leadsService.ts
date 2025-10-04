@@ -1,5 +1,6 @@
 import { LeadForm, LeadPipelineCard, LeadPipelineStage, ContactAttempt } from '../types/crm'
 import leadDistributionService from './leadDistributionService'
+import { leadTaskService } from './leadTaskService'
 
 // Interface para contato simplificado (usado na aba Contatos)
 export interface ContactLead {
@@ -12,10 +13,13 @@ export interface ContactLead {
   position?: string
   city?: string
   state?: string
-  status: 'ativo' | 'inativo' | 'prospecto'
+  status: 'qualificado' | 'nao_qualificado' | 'nao_definido'
   createdAt: Date
   lastContact?: Date
+  dataUltimoContato?: Date
   notes?: string
+  pipelineStage?: LeadPipelineStage
+  motivoDesqualificacao?: string
 }
 
 class LeadsService {
@@ -48,7 +52,7 @@ class LeadsService {
           criadoPor: 'sistema'
         },
         currentStage: 'novo_lead',
-        status: 'ativo',
+        status: 'nao_definido',
         responsavelAtual: '11',
         dataDistribuicao: new Date(),
         dataUltimaAtualizacao: new Date(),
@@ -103,7 +107,7 @@ class LeadsService {
           criadoPor: 'sistema'
         },
         currentStage: 'ligacao_1',
-        status: 'em_contato',
+        status: 'qualificado',
         responsavelAtual: '12',
         dataDistribuicao: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
         dataUltimaAtualizacao: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
@@ -161,7 +165,7 @@ class LeadsService {
           criadoPor: 'sistema'
         },
         currentStage: 'novo_lead',
-        status: 'ativo',
+        status: 'nao_qualificado',
         responsavelAtual: '11',
         dataDistribuicao: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
         dataUltimaAtualizacao: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
@@ -204,44 +208,49 @@ class LeadsService {
 
   // Obter leads formatados para a aba Contatos
   getContactLeads(): ContactLead[] {
-    return this.leads.map(lead => ({
-      id: lead.id,
-      name: lead.leadData.nome,
-      email: lead.leadData.email || '',
-      phone: lead.leadData.telefone,
-      type: 'lead' as const,
-      company: lead.leadData.empresa,
-      position: lead.leadData.cargo,
-      city: lead.leadData.cidade,
-      state: lead.leadData.estado,
-      status: this.mapPipelineStatusToContactStatus(lead.status),
-      createdAt: lead.dataCriacao,
-      lastContact: lead.contactAttempts.length > 0 
+    return this.leads.map(lead => {
+      const lastContactDate = lead.contactAttempts.length > 0 
         ? new Date(Math.max(...lead.contactAttempts.map(c => new Date(c.dataContato).getTime())))
-        : undefined,
-      notes: lead.observacoes
-    }))
+        : undefined;
+      
+      return {
+        id: lead.id,
+        name: lead.leadData.nome,
+        email: lead.leadData.email || '',
+        phone: lead.leadData.telefone,
+        type: 'lead' as const,
+        company: lead.leadData.empresa,
+        position: lead.leadData.cargo,
+        city: lead.leadData.cidade,
+        state: lead.leadData.estado,
+        status: this.mapPipelineStatusToContactStatus(lead.status),
+        createdAt: lead.dataCriacao,
+        lastContact: lastContactDate,
+        dataUltimoContato: lastContactDate,
+        notes: lead.observacoes,
+        pipelineStage: lead.currentStage,
+        motivoDesqualificacao: lead.status === 'nao_qualificado'
+          ? lead.outcome?.motivo || 'Não informado'
+          : undefined
+      }
+    })
   }
 
   // Mapear status do pipeline para status de contato
-  private mapPipelineStatusToContactStatus(pipelineStatus: string): 'ativo' | 'inativo' | 'prospecto' {
+  private mapPipelineStatusToContactStatus(pipelineStatus: string): 'qualificado' | 'nao_qualificado' | 'nao_definido' {
     switch (pipelineStatus) {
-      case 'ativo':
-      case 'em_contato':
-      case 'aguardando_retorno':
-        return 'ativo'
       case 'qualificado':
-        return 'prospecto'
+        return 'qualificado'
       case 'nao_qualificado':
       case 'perdido':
-        return 'inativo'
+        return 'nao_qualificado'
       default:
-        return 'prospecto'
+        return 'nao_definido'
     }
   }
 
   // Criar novo lead
-  createLead(leadData: LeadForm): LeadPipelineCard {
+  async createLead(leadData: LeadForm): Promise<LeadPipelineCard> {
     try {
       // Distribui o lead automaticamente
       const distribuicao = leadDistributionService.distribuirLead(leadData)
@@ -252,7 +261,7 @@ class LeadsService {
         leadId: leadData.id || Date.now().toString(),
         leadData,
         currentStage: 'novo_lead',
-        status: 'ativo',
+        status: 'nao_definido',
         responsavelAtual: distribuicao.responsavelAtual,
         dataDistribuicao: distribuicao.dataDistribuicao,
         dataUltimaAtualizacao: new Date(),
@@ -273,8 +282,12 @@ class LeadsService {
         dataCriacao: new Date()
       }
 
-      // Cria tarefa automática
-      const tarefa = leadDistributionService.criarTarefaContatoInicial(newLeadCard)
+      // Cria tarefa automática no banco de dados
+      const tarefa = await leadTaskService.criarTarefaAutomatica(
+        newLeadCard.id,
+        newLeadCard.responsavelAtual,
+        'initial_contact'
+      )
       newLeadCard.tasks = [tarefa]
 
       this.leads.unshift(newLeadCard)
@@ -391,7 +404,7 @@ class LeadsService {
           status: 'qualificado'
         },
         currentStage: 'novo_lead',
-        status: 'ativo',
+        status: 'nao_definido',
         responsavelAtual: lead.responsavelAtual,
         dataDistribuicao: new Date(),
         dataUltimaAtualizacao: new Date(),
@@ -489,6 +502,41 @@ class LeadsService {
   // Buscar leads desqualificados
   getDisqualifiedLeads(): LeadPipelineCard[] {
     return this.leads.filter(lead => lead.status === 'nao_qualificado')
+  }
+
+  // Obter estatísticas de motivos de desqualificação
+  getDisqualificationStats(): Record<string, number> {
+    const disqualifiedLeads = this.getDisqualifiedLeads()
+    const stats: Record<string, number> = {}
+    
+    disqualifiedLeads.forEach(lead => {
+      const motivo = lead.outcome?.motivo || 'Não informado'
+      stats[motivo] = (stats[motivo] || 0) + 1
+    })
+    
+    return stats
+  }
+
+  // Obter leads desqualificados por período
+  getDisqualifiedLeadsByPeriod(startDate: Date, endDate: Date): LeadPipelineCard[] {
+    return this.getDisqualifiedLeads().filter(lead => {
+      if (!lead.outcome?.dataDesfecho) return false
+      const desfechoDate = new Date(lead.outcome.dataDesfecho)
+      return desfechoDate >= startDate && desfechoDate <= endDate
+    })
+  }
+
+  // Obter estatísticas de motivos por período
+  getDisqualificationStatsByPeriod(startDate: Date, endDate: Date): Record<string, number> {
+    const disqualifiedLeads = this.getDisqualifiedLeadsByPeriod(startDate, endDate)
+    const stats: Record<string, number> = {}
+    
+    disqualifiedLeads.forEach(lead => {
+      const motivo = lead.outcome?.motivo || 'Não informado'
+      stats[motivo] = (stats[motivo] || 0) + 1
+    })
+    
+    return stats
   }
 }
 

@@ -6,6 +6,8 @@ import {
   ContactAttemptResult,
   ContactAttempt 
 } from '../types/crm';
+import { TaskPriority } from '../types/task';
+import { taskService } from './taskService';
 
 export interface TaskNotification {
   id: string;
@@ -70,6 +72,17 @@ class LeadTaskService {
     }
   ];
 
+  // Mapear prioridade do lead para prioridade da tarefa
+  private mapPriorityToTaskPriority(priority: 'baixa' | 'media' | 'alta' | 'urgente'): TaskPriority {
+    const priorityMap = {
+      'baixa': TaskPriority.LOW,
+      'media': TaskPriority.MEDIUM,
+      'alta': TaskPriority.HIGH,
+      'urgente': TaskPriority.URGENT
+    };
+    return priorityMap[priority];
+  }
+
   // Criar tarefa automática para novo lead
   async criarTarefaAutomatica(
     leadPipelineId: string, 
@@ -84,35 +97,71 @@ class LeadTaskService {
     const deadline = new Date();
     deadline.setHours(deadline.getHours() + template.deadlineHours);
 
-    const task: LeadTask = {
-      id: this.generateId(),
-      leadPipelineId,
-      titulo: template.name,
-      descricao: template.description,
-      tipo: 'contato_inicial',
-      status: 'pendente',
-      prioridade: template.priority,
-      responsavel: responsavelId,
-      dataVencimento: deadline,
-      dataCriacao: new Date(),
-      observacoes: '',
-      tentativasRedistribuicao: 0,
-      maxTentativasRedistribuicao: 3,
-      notificacoes: []
-    };
+    try {
+      // Criar tarefa no banco de dados usando o taskService
+      const taskFromDB = await taskService.createLeadTask(
+        leadPipelineId,
+        template.name,
+        template.description,
+        responsavelId,
+        responsavelId, // createdBy
+        deadline,
+        this.mapPriorityToTaskPriority(template.priority)
+      );
 
-    this.tasks.push(task);
+      // Criar tarefa local para compatibilidade
+      const task: LeadTask = {
+        id: taskFromDB.id,
+        leadPipelineId,
+        titulo: template.name,
+        descricao: template.description,
+        tipo: 'contato_inicial',
+        status: 'pendente',
+        prioridade: template.priority,
+        responsavel: responsavelId,
+        dataVencimento: deadline,
+        dataCriacao: new Date(),
+        observacoes: '',
+        tentativasRedistribuicao: 0,
+        maxTentativasRedistribuicao: 3,
+        taskDatabaseId: taskFromDB.id, // Vincular com a tarefa do banco
+        notificacoes: []
+      };
 
-    // Criar notificação para o responsável
-    await this.criarNotificacao(
-      task.id,
-      leadPipelineId,
-      responsavelId,
-      'task_created',
-      `Nova tarefa criada: ${task.titulo}. Prazo: ${task.dataVencimento.toLocaleString('pt-BR')}`
-    );
+      this.tasks.push(task);
 
-    return task;
+      // Criar notificação
+      await this.criarNotificacao(
+        task.id,
+        leadPipelineId,
+        responsavelId,
+        'task_created',
+        `Nova tarefa criada: ${template.name}`
+      );
+
+      return task;
+    } catch (error) {
+      console.error('Erro ao criar tarefa automática:', error);
+      throw new Error('Falha ao criar tarefa automática');
+    }
+  }
+
+  // Método para criar tarefa de contato inicial
+  async criarTarefaContatoInicial(
+    leadPipelineId: string,
+    responsavelId: string
+  ): Promise<string> {
+    try {
+      const tarefa = await this.criarTarefaAutomatica(
+        leadPipelineId,
+        responsavelId,
+        'initial_contact'
+      );
+      return tarefa.id;
+    } catch (error) {
+      console.error('Erro ao criar tarefa de contato inicial:', error);
+      throw error;
+    }
   }
 
   // Verificar tarefas vencidas
@@ -342,48 +391,201 @@ class LeadTaskService {
   }
 
   /**
-   * Cria tarefa de contato inicial para um lead
+   * Reatribui uma tarefa para outro responsável
    */
-  async criarTarefaContatoInicial(
-    leadPipelineId: string,
-    responsavelId: string
-  ): Promise<string> {
-    const template = this.taskTemplates.find(t => t.id === 'initial_contact');
+  async reatribuirTarefa(
+    tarefaId: string,
+    novoResponsavelId: string,
+    motivo?: string
+  ): Promise<LeadTask | null> {
+    const tarefa = this.tasks.find(t => t.id === tarefaId);
     
-    if (!template) {
-      throw new Error('Template de contato inicial não encontrado');
+    if (!tarefa) {
+      return null;
     }
 
-    const tarefa: LeadTask = {
-      id: this.generateId(),
-      leadPipelineId,
-      titulo: template.name,
-      descricao: template.description,
-      tipo: 'contato_inicial',
-      prioridade: template.priority,
-      status: 'pendente',
-      responsavel: responsavelId,
-      dataCriacao: new Date(),
-      dataVencimento: new Date(Date.now() + template.deadlineHours * 60 * 60 * 1000),
-      observacoes: 'Tarefa criada automaticamente após redistribuição',
-      tentativasRedistribuicao: 0,
-      maxTentativasRedistribuicao: 3,
-      notificacoes: []
-    };
+    const responsavelAnterior = tarefa.responsavel;
+    
+    // Atualizar tarefa com nova atribuição
+    const tarefaAtualizada: LeadTask = {
+      ...tarefa,
+      responsavel: novoResponsavelId,
+      observacoes: `${tarefa.observacoes || ''}\n[${new Date().toLocaleString()}] Reatribuída de ${tarefa.responsavel} para ${novoResponsavelId}. Motivo: ${motivo}`.trim()
+    }
+    
+    // Atualizar no array
+    const index = this.tasks.findIndex(t => t.id === tarefaId);
+    if (index !== -1) {
+      this.tasks[index] = tarefaAtualizada;
+    }
 
-    this.tasks.push(tarefa);
-
-    // Criar notificação
+    // Criar notificação para o novo responsável
     await this.criarNotificacao(
-      tarefa.id,
-      leadPipelineId,
-      responsavelId,
-      'task_created',
-      `Nova tarefa: ${tarefa.titulo}`
+      tarefaAtualizada.id,
+      tarefaAtualizada.leadPipelineId,
+      novoResponsavelId,
+      'task_reassigned',
+      `Tarefa "${tarefaAtualizada.titulo}" foi atribuída a você${motivo ? ` - ${motivo}` : ''}`
     );
 
-    return tarefa.id;
+    // Criar notificação para o responsável anterior
+    await this.criarNotificacao(
+      tarefaAtualizada.id,
+      tarefaAtualizada.leadPipelineId,
+      responsavelAnterior,
+      'task_reassigned',
+      `Tarefa "${tarefaAtualizada.titulo}" foi reatribuída para outro responsável`
+    );
+
+    return tarefaAtualizada;
   }
+
+  /**
+   * Atribui múltiplas tarefas para um responsável
+   */
+  async atribuirTarefasEmLote(
+    tarefaIds: string[],
+    responsavelId: string,
+    motivo?: string
+  ): Promise<LeadTask[]> {
+    const tarefasAtualizadas: LeadTask[] = [];
+
+    for (const tarefaId of tarefaIds) {
+      const tarefa = await this.reatribuirTarefa(tarefaId, responsavelId, motivo);
+      if (tarefa) {
+        tarefasAtualizadas.push(tarefa);
+      }
+    }
+
+    return tarefasAtualizadas;
+  }
+
+  /**
+   * Obtém estatísticas de carga de trabalho por responsável
+   */
+  async getCargaTrabalhoResponsaveis(): Promise<Record<string, {
+    total: number;
+    pendentes: number;
+    vencidas: number;
+    concluidas: number;
+  }>> {
+    const estatisticas: Record<string, {
+      total: number;
+      pendentes: number;
+      vencidas: number;
+      concluidas: number;
+    }> = {};
+
+    const hoje = new Date();
+
+    this.tasks.forEach(tarefa => {
+      if (!estatisticas[tarefa.responsavel]) {
+        estatisticas[tarefa.responsavel] = {
+          total: 0,
+          pendentes: 0,
+          vencidas: 0,
+          concluidas: 0
+        };
+      }
+
+      const stats = estatisticas[tarefa.responsavel];
+      stats.total++;
+
+      if (tarefa.status === 'concluida') {
+        stats.concluidas++;
+      } else if (tarefa.status === 'pendente') {
+        stats.pendentes++;
+        
+        // Verificar se está vencida
+        if (tarefa.dataVencimento && tarefa.dataVencimento < hoje) {
+          stats.vencidas++;
+        }
+      }
+    });
+
+    return estatisticas;
+  }
+
+  /**
+   * Redistribui tarefas de um responsável para outros
+   */
+  async redistribuirTarefasResponsavel(
+    responsavelOrigemId: string,
+    novaDistribuicao: { responsavelId: string; quantidade: number }[],
+    motivo?: string
+  ): Promise<LeadTask[]> {
+    const tarefasPendentes = this.tasks.filter(
+      t => t.responsavel === responsavelOrigemId && t.status === 'pendente'
+    );
+
+    if (tarefasPendentes.length === 0) {
+      return [];
+    }
+
+    const tarefasRedistribuidas: LeadTask[] = [];
+    let indiceAtual = 0;
+
+    for (const distribuicao of novaDistribuicao) {
+      for (let i = 0; i < distribuicao.quantidade && indiceAtual < tarefasPendentes.length; i++) {
+        const tarefa = tarefasPendentes[indiceAtual];
+        const tarefaAtualizada = await this.reatribuirTarefa(
+          tarefa.id,
+          distribuicao.responsavelId,
+          motivo
+        );
+        
+        if (tarefaAtualizada) {
+          tarefasRedistribuidas.push(tarefaAtualizada);
+        }
+        
+        indiceAtual++;
+      }
+    }
+
+    return tarefasRedistribuidas;
+  }
+
+  /**
+   * Obtém tarefas próximas do vencimento para um responsável
+   */
+  async getTarefasProximasVencimento(
+    responsavelId: string,
+    horasAntecedencia: number = 24
+  ): Promise<LeadTask[]> {
+    const agora = new Date();
+    const limiteVencimento = new Date(agora.getTime() + (horasAntecedencia * 60 * 60 * 1000));
+
+    return this.tasks.filter(tarefa => 
+      tarefa.responsavel === responsavelId &&
+      tarefa.status === 'pendente' &&
+      tarefa.dataVencimento &&
+      tarefa.dataVencimento <= limiteVencimento &&
+      tarefa.dataVencimento > agora
+    );
+  }
+
+  /**
+   * Obtém histórico de reatribuições de uma tarefa
+   */
+  async getHistoricoReatribuicoes(tarefaId: string): Promise<TaskNotification[]> {
+    return this.notifications.filter(
+      n => n.taskId === tarefaId && n.type === 'task_reassigned'
+    );
+  }
+
+  /**
+   * Verifica se um responsável pode receber mais tarefas
+   */
+  async podeReceberMaisTarefas(
+    responsavelId: string,
+    limiteTarefas: number = 10
+  ): Promise<boolean> {
+    const tarefasPendentes = await this.getTarefasPorResponsavel(responsavelId);
+    const pendentesAtivas = tarefasPendentes.filter(t => t.status === 'pendente');
+    
+    return pendentesAtivas.length < limiteTarefas;
+  }
+
 }
 
 export const leadTaskService = new LeadTaskService();

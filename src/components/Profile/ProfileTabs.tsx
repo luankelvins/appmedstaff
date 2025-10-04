@@ -1,7 +1,7 @@
 import React from 'react'
-import { User, Settings, Shield, Activity, Bell } from 'lucide-react'
+import { User, Settings, Shield, Activity, Bell, Clock, Edit } from 'lucide-react'
 
-export type ProfileTab = 'personal' | 'preferences' | 'security' | 'activity' | 'notifications'
+export type ProfileTab = 'personal' | 'preferences' | 'security' | 'activity' | 'notifications' | 'hour-bank' | 'time-edit-requests'
 
 interface ProfileTabsProps {
   activeTab: ProfileTab
@@ -13,31 +13,43 @@ const tabs = [
     id: 'personal' as ProfileTab,
     label: 'Informações Pessoais',
     icon: User,
-    description: 'Dados pessoais e contato'
+    description: 'Dados pessoais e informações de contato'
   },
   {
     id: 'preferences' as ProfileTab,
     label: 'Preferências',
     icon: Settings,
-    description: 'Dashboard e configurações'
+    description: 'Configurações de notificações e dashboard'
   },
   {
     id: 'security' as ProfileTab,
     label: 'Segurança',
     icon: Shield,
-    description: 'Senha e autenticação'
+    description: 'Senha, autenticação e dispositivos'
   },
   {
     id: 'activity' as ProfileTab,
     label: 'Atividade',
     icon: Activity,
-    description: 'Histórico de ações'
+    description: 'Histórico de ações e logs'
   },
   {
     id: 'notifications' as ProfileTab,
     label: 'Notificações',
     icon: Bell,
-    description: 'Preferências de notificação'
+    description: 'Configurações de alertas e avisos'
+  },
+  {
+    id: 'hour-bank' as ProfileTab,
+    label: 'Banco de Horas',
+    icon: Clock,
+    description: 'Saldo de horas e histórico de transações'
+  },
+  {
+    id: 'time-edit-requests' as ProfileTab,
+    label: 'Edições de Ponto',
+    icon: Edit,
+    description: 'Solicitações de correção de registros'
   }
 ]
 

@@ -15,6 +15,7 @@ export interface UserProfile {
   permissions: string[]
   preferences: UserPreferences
   security: SecuritySettings
+  employeeId?: string // ID do membro do time interno
   createdAt: string
   updatedAt: string
 }

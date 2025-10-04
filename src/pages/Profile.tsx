@@ -7,11 +7,13 @@ import { PreferencesTab } from '../components/Profile/PreferencesTab'
 import { SecurityTab } from '../components/Profile/SecurityTab'
 import { ActivityTab } from '../components/Profile/ActivityTab'
 import { NotificationsTab } from '../components/Profile/NotificationsTab'
+import { HourBankTab } from '../components/Profile/HourBankTab'
+import { TimeEditRequestTab } from '../components/Profile/TimeEditRequestTab'
 import { ProfileUpdateRequest, PasswordChangeRequest, UserPreferences, NotificationPreferences } from '../types/profile'
 import { hasPermission } from '../utils/permissions'
 import { Loader2 } from 'lucide-react'
 
-export type ProfileTab = 'personal' | 'preferences' | 'security' | 'activity' | 'notifications'
+export type ProfileTab = 'personal' | 'preferences' | 'security' | 'activity' | 'notifications' | 'hour-bank' | 'time-edit-requests'
 
 export const Profile: React.FC = () => {
   const { profile, loading, error, updateProfile, changePassword, uploadAvatar, exportActivity } = useProfile()
@@ -194,6 +196,21 @@ export const Profile: React.FC = () => {
           <NotificationsTab
             preferences={profile.preferences.notifications}
             onUpdate={handleNotificationsUpdate}
+          />
+        )
+      
+      case 'hour-bank':
+        return (
+          <HourBankTab
+            employeeId={profile.id}
+          />
+        )
+      
+      case 'time-edit-requests':
+        return (
+          <TimeEditRequestTab
+            employeeId={profile.id}
+            employeeName={profile.name}
           />
         )
       
