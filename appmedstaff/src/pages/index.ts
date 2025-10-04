@@ -1,6 +1,0 @@
-export { default as Dashboard } from './Dashboard'
-export { default as Login } from './Login'
-export { default as Feed } from './Feed'
-export { default as Tasks } from './Tasks'
-export { default as Contacts } from './Contacts'
-export { Profile } from './Profile'
