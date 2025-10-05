@@ -21,16 +21,38 @@ import { taskService } from '../../../services/taskService'
 import { notificationService } from '../../../services/notificationService'
 import { TaskStatus } from '../../../types/task'
 
-// Widget de Estatísticas Rápidas
+// Importando os novos widgets avançados
+import ProductivityAnalyticsWidget from './ProductivityAnalyticsWidget'
+import SystemMonitorWidget from './SystemMonitorWidget'
+import SalesAnalyticsWidget from './SalesAnalyticsWidget'
+import TeamManagementWidget from './TeamManagementWidget'
+import FinancialAnalyticsWidget from './FinancialAnalyticsWidget'
+
+// Widget de Estatísticas Rápidas Melhorado
 const QuickStatsWidget: React.FC = () => {
   const [stats, setStats] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [period, setPeriod] = useState<'today' | 'week' | 'month'>('month')
 
   useEffect(() => {
     const loadStats = async () => {
       try {
         const data = await dashboardService.getDashboardData()
-        setStats(data.stats)
+        // Simulando dados com tendências
+        const enhancedStats = {
+          ...data.stats,
+          totalClients: 156,
+          previousClients: 142,
+          completedTasks: 89,
+          previousCompletedTasks: 76,
+          pendingTasks: 23,
+          previousPendingTasks: 31,
+          monthlyRevenue: 125000,
+          previousRevenue: 118000,
+          efficiency: 87.5,
+          previousEfficiency: 82.1
+        }
+        setStats(enhancedStats)
       } catch (error) {
         console.error('Erro ao carregar estatísticas:', error)
       } finally {
@@ -38,79 +60,298 @@ const QuickStatsWidget: React.FC = () => {
       }
     }
     loadStats()
-  }, [])
+  }, [period])
+
+  const calculateChange = (current: number, previous: number) => {
+    if (!previous) return 0
+    return ((current - previous) / previous) * 100
+  }
+
+  const getTrendIcon = (change: number) => {
+    if (change > 0) return <TrendingUp className="w-4 h-4 text-green-500" />
+    if (change < 0) return <TrendingDown className="w-4 h-4 text-red-500" />
+    return <div className="w-4 h-4 bg-gray-400 rounded-full" />
+  }
+
+  const getChangeColor = (change: number) => {
+    if (change > 0) return 'text-green-600'
+    if (change < 0) return 'text-red-600'
+    return 'text-gray-600'
+  }
 
   if (loading) {
     return (
       <div className="animate-pulse space-y-4">
         <div className="h-4 bg-gray-200 rounded w-3/4"></div>
         <div className="grid grid-cols-2 gap-4">
-          <div className="h-16 bg-gray-200 rounded"></div>
-          <div className="h-16 bg-gray-200 rounded"></div>
+          <div className="h-20 bg-gray-200 rounded"></div>
+          <div className="h-20 bg-gray-200 rounded"></div>
+          <div className="h-20 bg-gray-200 rounded"></div>
+          <div className="h-20 bg-gray-200 rounded"></div>
         </div>
       </div>
     )
   }
 
+  const statsData = [
+    {
+      id: 'clients',
+      label: 'Clientes',
+      value: stats?.totalClients || 0,
+      previous: stats?.previousClients || 0,
+      icon: Users,
+      color: 'blue',
+      bgColor: 'bg-blue-50',
+      textColor: 'text-blue-600',
+      iconColor: 'text-blue-500',
+      boldColor: 'text-blue-900'
+    },
+    {
+      id: 'completed',
+      label: 'Concluídas',
+      value: stats?.completedTasks || 0,
+      previous: stats?.previousCompletedTasks || 0,
+      icon: CheckCircle,
+      color: 'green',
+      bgColor: 'bg-green-50',
+      textColor: 'text-green-600',
+      iconColor: 'text-green-500',
+      boldColor: 'text-green-900'
+    },
+    {
+      id: 'pending',
+      label: 'Pendentes',
+      value: stats?.pendingTasks || 0,
+      previous: stats?.previousPendingTasks || 0,
+      icon: Clock,
+      color: 'yellow',
+      bgColor: 'bg-yellow-50',
+      textColor: 'text-yellow-600',
+      iconColor: 'text-yellow-500',
+      boldColor: 'text-yellow-900'
+    },
+    {
+      id: 'revenue',
+      label: 'Receita',
+      value: stats?.monthlyRevenue || 0,
+      previous: stats?.previousRevenue || 0,
+      icon: DollarSign,
+      color: 'purple',
+      bgColor: 'bg-purple-50',
+      textColor: 'text-purple-600',
+      iconColor: 'text-purple-500',
+      boldColor: 'text-purple-900',
+      format: 'currency'
+    }
+  ]
+
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-blue-50 p-3 rounded-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-blue-600 font-medium">Clientes</p>
-              <p className="text-2xl font-bold text-blue-900">{stats?.totalClients || 0}</p>
+      {/* Seletor de Período */}
+      <div className="flex justify-between items-center">
+        <h3 className="text-sm font-semibold text-gray-700">Estatísticas Rápidas</h3>
+        <div className="flex bg-gray-100 rounded-lg p-1">
+          {[
+            { key: 'today', label: 'Hoje' },
+            { key: 'week', label: 'Semana' },
+            { key: 'month', label: 'Mês' }
+          ].map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setPeriod(key as any)}
+              className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
+                period === key
+                  ? 'bg-white text-medstaff-primary shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Grid de Estatísticas */}
+      <div className="grid grid-cols-2 gap-3">
+        {statsData.map((stat) => {
+          const change = calculateChange(stat.value, stat.previous)
+          const Icon = stat.icon
+          
+          return (
+            <div
+              key={stat.id}
+              className={`${stat.bgColor} p-3 rounded-lg border border-gray-200 hover:shadow-md transition-shadow cursor-pointer`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center space-x-2">
+                  <span className={`text-xs font-medium ${stat.textColor}`}>{stat.label}</span>
+                  {getTrendIcon(change)}
+                </div>
+                <Icon className={`w-6 h-6 ${stat.iconColor}`} />
+              </div>
+              
+              <div className="space-y-1">
+                <div className={`text-xl font-bold ${stat.boldColor}`}>
+                  {stat.format === 'currency' 
+                    ? `R$ ${stat.value.toLocaleString()}`
+                    : stat.value.toLocaleString()
+                  }
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <div className={`text-xs font-medium ${getChangeColor(change)}`}>
+                    {change > 0 ? '+' : ''}{change.toFixed(1)}%
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    vs. período anterior
+                  </div>
+                </div>
+                
+                {/* Mini barra de progresso */}
+                <div className="w-full bg-gray-200 rounded-full h-1 mt-2">
+                  <div
+                    className={`h-1 rounded-full transition-all duration-300 ${
+                      change > 0 ? 'bg-green-500' : change < 0 ? 'bg-red-500' : 'bg-gray-400'
+                    }`}
+                    style={{ width: `${Math.min(Math.abs(change) * 2, 100)}%` }}
+                  />
+                </div>
+              </div>
             </div>
-            <Users className="w-8 h-8 text-blue-500" />
+          )
+        })}
+      </div>
+
+      {/* Resumo de Eficiência */}
+      <div className="bg-gradient-to-r from-medstaff-light to-medstaff-accent/20 border border-medstaff-secondary/30 rounded-lg p-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <Target className="w-4 h-4 text-medstaff-primary" />
+            <span className="text-sm font-semibold text-medstaff-primary">Eficiência Geral</span>
+          </div>
+          <div className="text-right">
+            <div className="text-lg font-bold text-medstaff-primary">
+              {stats?.efficiency?.toFixed(1) || 0}%
+            </div>
+            <div className={`text-xs font-medium ${getChangeColor(calculateChange(stats?.efficiency || 0, stats?.previousEfficiency || 0))}`}>
+              {calculateChange(stats?.efficiency || 0, stats?.previousEfficiency || 0) > 0 ? '+' : ''}
+              {calculateChange(stats?.efficiency || 0, stats?.previousEfficiency || 0).toFixed(1)}%
+            </div>
           </div>
         </div>
         
-        <div className="bg-green-50 p-3 rounded-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-green-600 font-medium">Tarefas</p>
-              <p className="text-2xl font-bold text-green-900">{stats?.completedTasks || 0}</p>
-            </div>
-            <CheckCircle className="w-8 h-8 text-green-500" />
-          </div>
-        </div>
-        
-        <div className="bg-yellow-50 p-3 rounded-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-yellow-600 font-medium">Pendentes</p>
-              <p className="text-2xl font-bold text-yellow-900">{stats?.pendingTasks || 0}</p>
-            </div>
-            <Clock className="w-8 h-8 text-yellow-500" />
-          </div>
-        </div>
-        
-        <div className="bg-purple-50 p-3 rounded-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-purple-600 font-medium">Receita</p>
-              <p className="text-lg font-bold text-purple-900">
-                R$ {(stats?.monthlyRevenue || 0).toLocaleString()}
-              </p>
-            </div>
-            <DollarSign className="w-8 h-8 text-purple-500" />
-          </div>
+        {/* Barra de progresso da eficiência */}
+        <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+          <div
+            className="bg-medstaff-primary h-2 rounded-full transition-all duration-300"
+            style={{ width: `${stats?.efficiency || 0}%` }}
+          />
         </div>
       </div>
     </div>
   )
 }
 
-// Widget de Tarefas
+// Widget de Tarefas Melhorado
 const TasksWidget: React.FC = () => {
   const [tasks, setTasks] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState<'all' | 'high' | 'today' | 'overdue'>('all')
+  const [stats, setStats] = useState({ total: 0, completed: 0, pending: 0, overdue: 0 })
 
   useEffect(() => {
     const loadTasks = async () => {
       try {
-        const response = await taskService.getTasks({ status: [TaskStatus.IN_PROGRESS] }, undefined, 1, 5)
-        setTasks(response.tasks)
+        // Simulando dados mais ricos para demonstração
+        const mockTasks = [
+          {
+            id: '1',
+            title: 'Revisar proposta comercial',
+            category: 'Vendas',
+            priority: 'high',
+            status: 'in_progress',
+            progress: 75,
+            dueDate: new Date().toISOString(),
+            assignee: 'Ana Silva',
+            estimatedHours: 4,
+            spentHours: 3
+          },
+          {
+            id: '2',
+            title: 'Implementar nova funcionalidade',
+            category: 'Desenvolvimento',
+            priority: 'medium',
+            status: 'in_progress',
+            progress: 45,
+            dueDate: new Date(Date.now() + 86400000).toISOString(),
+            assignee: 'Carlos Santos',
+            estimatedHours: 8,
+            spentHours: 3.5
+          },
+          {
+            id: '3',
+            title: 'Reunião com cliente',
+            category: 'Reunião',
+            priority: 'high',
+            status: 'pending',
+            progress: 0,
+            dueDate: new Date(Date.now() - 86400000).toISOString(),
+            assignee: 'Maria Oliveira',
+            estimatedHours: 2,
+            spentHours: 0
+          },
+          {
+            id: '4',
+            title: 'Atualizar documentação',
+            category: 'Documentação',
+            priority: 'low',
+            status: 'in_progress',
+            progress: 90,
+            dueDate: new Date(Date.now() + 172800000).toISOString(),
+            assignee: 'João Costa',
+            estimatedHours: 3,
+            spentHours: 2.7
+          }
+        ]
+
+        // Aplicar filtros
+        let filteredTasks = mockTasks
+        const today = new Date().toDateString()
+        
+        switch (filter) {
+          case 'high':
+            filteredTasks = mockTasks.filter(task => task.priority === 'high')
+            break
+          case 'today':
+            filteredTasks = mockTasks.filter(task => 
+              new Date(task.dueDate).toDateString() === today
+            )
+            break
+          case 'overdue':
+            filteredTasks = mockTasks.filter(task => 
+              new Date(task.dueDate) < new Date() && task.status !== 'completed'
+            )
+            break
+          default:
+            filteredTasks = mockTasks
+        }
+
+        setTasks(filteredTasks)
+        
+        // Calcular estatísticas
+        const totalTasks = mockTasks.length
+        const completedTasks = mockTasks.filter(t => t.status === 'completed').length
+        const pendingTasks = mockTasks.filter(t => t.status === 'pending').length
+        const overdueTasks = mockTasks.filter(t => 
+          new Date(t.dueDate) < new Date() && t.status !== 'completed'
+        ).length
+
+        setStats({
+          total: totalTasks,
+          completed: completedTasks,
+          pending: pendingTasks,
+          overdue: overdueTasks
+        })
       } catch (error) {
         console.error('Erro ao carregar tarefas:', error)
       } finally {
@@ -118,68 +359,46 @@ const TasksWidget: React.FC = () => {
       }
     }
     loadTasks()
-  }, [])
+  }, [filter])
 
-  if (loading) {
-    return (
-      <div className="animate-pulse space-y-3">
-        {[1, 2, 3].map(i => (
-          <div key={i} className="h-12 bg-gray-200 rounded"></div>
-        ))}
-      </div>
-    )
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'high': return 'bg-red-500'
+      case 'medium': return 'bg-yellow-500'
+      case 'low': return 'bg-green-500'
+      default: return 'bg-gray-500'
+    }
   }
 
-  return (
-    <div className="space-y-3">
-      {tasks.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">
-          <CheckCircle className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-          <p>Nenhuma tarefa em andamento</p>
-        </div>
-      ) : (
-        tasks.map(task => (
-          <div key={task.id} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-            <div className={`w-3 h-3 rounded-full ${
-              task.priority === 'high' ? 'bg-red-500' :
-              task.priority === 'medium' ? 'bg-yellow-500' : 'bg-green-500'
-            }`} />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">{task.title}</p>
-              <p className="text-xs text-gray-500">{task.category}</p>
-            </div>
-            <div className="text-xs text-gray-400">
-              {task.dueDate && new Date(task.dueDate).toLocaleDateString()}
-            </div>
-          </div>
-        ))
-      )}
-    </div>
-  )
-}
-
-// Widget de Notificações
-const NotificationsWidget: React.FC = () => {
-  const [notifications, setNotifications] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    const loadNotifications = async () => {
-      try {
-        const data = await notificationService.getNotifications({ read: false })
-        setNotifications(data.slice(0, 5))
-      } catch (error) {
-        console.error('Erro ao carregar notificações:', error)
-      } finally {
-        setLoading(false)
-      }
+  const getPriorityLabel = (priority: string) => {
+    switch (priority) {
+      case 'high': return 'Alta'
+      case 'medium': return 'Média'
+      case 'low': return 'Baixa'
+      default: return 'Normal'
     }
-    loadNotifications()
-  }, [])
+  }
+
+  const isOverdue = (dueDate: string) => {
+    return new Date(dueDate) < new Date()
+  }
+
+  const formatTimeRemaining = (dueDate: string) => {
+    const now = new Date()
+    const due = new Date(dueDate)
+    const diffMs = due.getTime() - now.getTime()
+    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
+    
+    if (diffDays < 0) return `${Math.abs(diffDays)}d atrasado`
+    if (diffDays === 0) return 'Hoje'
+    if (diffDays === 1) return 'Amanhã'
+    return `${diffDays}d restantes`
+  }
 
   if (loading) {
     return (
       <div className="animate-pulse space-y-3">
+        <div className="h-8 bg-gray-200 rounded w-full"></div>
         {[1, 2, 3].map(i => (
           <div key={i} className="h-16 bg-gray-200 rounded"></div>
         ))}
@@ -187,35 +406,485 @@ const NotificationsWidget: React.FC = () => {
     )
   }
 
-  const getNotificationIcon = (type: string) => {
+  return (
+    <div className="space-y-4">
+      {/* Header com Estatísticas */}
+      <div className="flex justify-between items-center">
+        <h3 className="text-sm font-semibold text-gray-700">Minhas Tarefas</h3>
+        <div className="flex items-center space-x-2 text-xs">
+          <span className="bg-blue-100 text-blue-600 px-2 py-1 rounded-full">
+            {stats.total} total
+          </span>
+          {stats.overdue > 0 && (
+            <span className="bg-red-100 text-red-600 px-2 py-1 rounded-full">
+              {stats.overdue} atrasadas
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Filtros */}
+      <div className="flex bg-gray-100 rounded-lg p-1">
+        {[
+          { key: 'all', label: 'Todas', count: stats.total },
+          { key: 'high', label: 'Alta', count: null },
+          { key: 'today', label: 'Hoje', count: null },
+          { key: 'overdue', label: 'Atrasadas', count: stats.overdue }
+        ].map(({ key, label, count }) => (
+          <button
+            key={key}
+            onClick={() => setFilter(key as any)}
+            className={`flex items-center space-x-1 px-2 py-1 text-xs font-medium rounded-md transition-colors flex-1 justify-center ${
+              filter === key
+                ? 'bg-white text-medstaff-primary shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <span>{label}</span>
+            {count !== null && count > 0 && (
+              <span className={`text-xs px-1 rounded-full ${
+                filter === key ? 'bg-medstaff-primary/20' : 'bg-gray-200'
+              }`}>
+                {count}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Lista de Tarefas */}
+      <div className="space-y-2 max-h-80 overflow-y-auto">
+        {tasks.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            <CheckCircle className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+            <p className="text-sm">
+              {filter === 'all' ? 'Nenhuma tarefa encontrada' : 
+               filter === 'overdue' ? 'Nenhuma tarefa atrasada' :
+               filter === 'today' ? 'Nenhuma tarefa para hoje' :
+               'Nenhuma tarefa de alta prioridade'}
+            </p>
+          </div>
+        ) : (
+          tasks.map(task => (
+            <div 
+              key={task.id} 
+              className={`p-3 rounded-lg border transition-all hover:shadow-sm cursor-pointer ${
+                isOverdue(task.dueDate) ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'
+              }`}
+            >
+              <div className="flex items-start justify-between mb-2">
+                <div className="flex items-start space-x-3 flex-1">
+                  <div className={`w-3 h-3 rounded-full mt-1 ${getPriorityColor(task.priority)}`} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">{task.title}</p>
+                    <div className="flex items-center space-x-2 mt-1">
+                      <span className="text-xs text-gray-500">{task.category}</span>
+                      <span className="text-xs text-gray-400">•</span>
+                      <span className="text-xs text-gray-500">{task.assignee}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="text-right">
+                  <div className={`text-xs font-medium ${
+                    isOverdue(task.dueDate) ? 'text-red-600' : 'text-gray-600'
+                  }`}>
+                    {formatTimeRemaining(task.dueDate)}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    {task.spentHours}h / {task.estimatedHours}h
+                  </div>
+                </div>
+              </div>
+
+              {/* Barra de Progresso */}
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center space-x-2">
+                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                    task.priority === 'high' ? 'bg-red-100 text-red-600' :
+                    task.priority === 'medium' ? 'bg-yellow-100 text-yellow-600' :
+                    'bg-green-100 text-green-600'
+                  }`}>
+                    {getPriorityLabel(task.priority)}
+                  </span>
+                </div>
+                <span className="text-xs font-medium text-gray-600">{task.progress}%</span>
+              </div>
+              
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div
+                  className={`h-2 rounded-full transition-all duration-300 ${
+                    task.progress >= 80 ? 'bg-green-500' :
+                    task.progress >= 50 ? 'bg-yellow-500' :
+                    'bg-blue-500'
+                  }`}
+                  style={{ width: `${task.progress}%` }}
+                />
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Resumo de Produtividade */}
+      {tasks.length > 0 && (
+        <div className="bg-gradient-to-r from-medstaff-light to-medstaff-accent/20 border border-medstaff-secondary/30 rounded-lg p-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Activity className="w-4 h-4 text-medstaff-primary" />
+              <span className="text-sm font-semibold text-medstaff-primary">Produtividade</span>
+            </div>
+            <div className="text-right">
+              <div className="text-lg font-bold text-medstaff-primary">
+                {Math.round(tasks.reduce((acc, task) => acc + task.progress, 0) / tasks.length)}%
+              </div>
+              <div className="text-xs text-gray-600">Progresso médio</div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Widget de Notificações Melhorado
+const NotificationsWidget: React.FC = () => {
+  const [notifications, setNotifications] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState<'all' | 'unread' | 'important' | 'system'>('unread')
+  const [stats, setStats] = useState({ total: 0, unread: 0, important: 0, system: 0 })
+
+  useEffect(() => {
+    const loadNotifications = async () => {
+      try {
+        // Simulando dados mais ricos para demonstração
+        const mockNotifications = [
+          {
+            id: '1',
+            title: 'Nova tarefa atribuída',
+            message: 'Você foi designado para revisar a proposta comercial do cliente ABC Corp.',
+            type: 'task',
+            category: 'work',
+            priority: 'high',
+            read: false,
+            createdAt: new Date(Date.now() - 300000).toISOString(), // 5 min ago
+            actionRequired: true,
+            actionUrl: '/tasks/123',
+            sender: 'Ana Silva'
+          },
+          {
+            id: '2',
+            title: 'Sistema atualizado',
+            message: 'O sistema foi atualizado para a versão 2.1.0 com novas funcionalidades.',
+            type: 'system',
+            category: 'system',
+            priority: 'medium',
+            read: false,
+            createdAt: new Date(Date.now() - 1800000).toISOString(), // 30 min ago
+            actionRequired: false,
+            actionUrl: null,
+            sender: 'Sistema'
+          },
+          {
+            id: '3',
+            title: 'Reunião em 15 minutos',
+            message: 'Lembrete: Reunião de alinhamento da equipe às 14:30.',
+            type: 'reminder',
+            category: 'calendar',
+            priority: 'high',
+            read: false,
+            createdAt: new Date(Date.now() - 900000).toISOString(), // 15 min ago
+            actionRequired: true,
+            actionUrl: '/calendar/event/456',
+            sender: 'Calendário'
+          },
+          {
+            id: '4',
+            title: 'Novo comentário',
+            message: 'Carlos Santos comentou no projeto "Desenvolvimento Mobile".',
+            type: 'comment',
+            category: 'social',
+            priority: 'low',
+            read: true,
+            createdAt: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
+            actionRequired: false,
+            actionUrl: '/projects/789#comment-123',
+            sender: 'Carlos Santos'
+          },
+          {
+            id: '5',
+            title: 'Backup concluído',
+            message: 'Backup automático dos dados foi concluído com sucesso.',
+            type: 'success',
+            category: 'system',
+            priority: 'low',
+            read: true,
+            createdAt: new Date(Date.now() - 7200000).toISOString(), // 2 hours ago
+            actionRequired: false,
+            actionUrl: null,
+            sender: 'Sistema'
+          },
+          {
+            id: '6',
+            title: 'Falha na sincronização',
+            message: 'Erro ao sincronizar dados com o servidor externo. Tentativa automática em 10 minutos.',
+            type: 'error',
+            category: 'system',
+            priority: 'high',
+            read: false,
+            createdAt: new Date(Date.now() - 600000).toISOString(), // 10 min ago
+            actionRequired: true,
+            actionUrl: '/system/sync-status',
+            sender: 'Sistema'
+          }
+        ]
+
+        // Aplicar filtros
+        let filteredNotifications = mockNotifications
+        
+        switch (filter) {
+          case 'unread':
+            filteredNotifications = mockNotifications.filter(n => !n.read)
+            break
+          case 'important':
+            filteredNotifications = mockNotifications.filter(n => n.priority === 'high')
+            break
+          case 'system':
+            filteredNotifications = mockNotifications.filter(n => n.category === 'system')
+            break
+          default:
+            filteredNotifications = mockNotifications
+        }
+
+        setNotifications(filteredNotifications.slice(0, 8))
+        
+        // Calcular estatísticas
+        const totalNotifications = mockNotifications.length
+        const unreadNotifications = mockNotifications.filter(n => !n.read).length
+        const importantNotifications = mockNotifications.filter(n => n.priority === 'high').length
+        const systemNotifications = mockNotifications.filter(n => n.category === 'system').length
+
+        setStats({
+          total: totalNotifications,
+          unread: unreadNotifications,
+          important: importantNotifications,
+          system: systemNotifications
+        })
+      } catch (error) {
+        console.error('Erro ao carregar notificações:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadNotifications()
+  }, [filter])
+
+  const getNotificationIcon = (type: string, category: string) => {
     switch (type) {
       case 'error': return <AlertTriangle className="w-4 h-4 text-red-500" />
       case 'warning': return <AlertTriangle className="w-4 h-4 text-yellow-500" />
       case 'success': return <CheckCircle className="w-4 h-4 text-green-500" />
+      case 'task': return <Briefcase className="w-4 h-4 text-blue-500" />
+      case 'reminder': return <Clock className="w-4 h-4 text-orange-500" />
+      case 'comment': return <MessageSquare className="w-4 h-4 text-purple-500" />
+      case 'system': return <Activity className="w-4 h-4 text-gray-500" />
       default: return <Bell className="w-4 h-4 text-blue-500" />
     }
   }
 
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'high': return 'border-l-red-500 bg-red-50'
+      case 'medium': return 'border-l-yellow-500 bg-yellow-50'
+      case 'low': return 'border-l-green-500 bg-green-50'
+      default: return 'border-l-gray-500 bg-gray-50'
+    }
+  }
+
+  const formatTimeAgo = (dateString: string) => {
+    const now = new Date()
+    const date = new Date(dateString)
+    const diffMs = now.getTime() - date.getTime()
+    const diffMins = Math.floor(diffMs / 60000)
+    const diffHours = Math.floor(diffMs / 3600000)
+    const diffDays = Math.floor(diffMs / 86400000)
+
+    if (diffMins < 1) return 'Agora'
+    if (diffMins < 60) return `${diffMins}min atrás`
+    if (diffHours < 24) return `${diffHours}h atrás`
+    return `${diffDays}d atrás`
+  }
+
+  const markAsRead = (notificationId: string) => {
+    setNotifications(prev => 
+      prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
+    )
+  }
+
+  const markAllAsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+    setStats(prev => ({ ...prev, unread: 0 }))
+  }
+
+  if (loading) {
+    return (
+      <div className="animate-pulse space-y-3">
+        <div className="h-8 bg-gray-200 rounded w-full"></div>
+        {[1, 2, 3].map(i => (
+          <div key={i} className="h-20 bg-gray-200 rounded"></div>
+        ))}
+      </div>
+    )
+  }
+
   return (
-    <div className="space-y-3">
-      {notifications.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">
-          <Bell className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-          <p>Nenhuma notificação</p>
+    <div className="space-y-4">
+      {/* Header com Estatísticas e Ações */}
+      <div className="flex justify-between items-center">
+        <h3 className="text-sm font-semibold text-gray-700">Notificações</h3>
+        <div className="flex items-center space-x-2">
+          {stats.unread > 0 && (
+            <button
+              onClick={markAllAsRead}
+              className="text-xs text-medstaff-primary hover:text-medstaff-secondary transition-colors"
+            >
+              Marcar todas como lidas
+            </button>
+          )}
+          <div className="flex items-center space-x-1 text-xs">
+            <span className="bg-blue-100 text-blue-600 px-2 py-1 rounded-full">
+              {stats.total} total
+            </span>
+            {stats.unread > 0 && (
+              <span className="bg-red-100 text-red-600 px-2 py-1 rounded-full">
+                {stats.unread} não lidas
+              </span>
+            )}
+          </div>
         </div>
-      ) : (
-        notifications.map(notification => (
-          <div key={notification.id} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-            {getNotificationIcon(notification.type)}
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900">{notification.title}</p>
-              <p className="text-xs text-gray-600 mt-1 line-clamp-2">{notification.message}</p>
-              <p className="text-xs text-gray-400 mt-1">
-                {new Date(notification.createdAt).toLocaleTimeString()}
-              </p>
+      </div>
+
+      {/* Filtros */}
+      <div className="flex bg-gray-100 rounded-lg p-1">
+        {[
+          { key: 'unread', label: 'Não lidas', count: stats.unread },
+          { key: 'all', label: 'Todas', count: stats.total },
+          { key: 'important', label: 'Importantes', count: stats.important },
+          { key: 'system', label: 'Sistema', count: stats.system }
+        ].map(({ key, label, count }) => (
+          <button
+            key={key}
+            onClick={() => setFilter(key as any)}
+            className={`flex items-center space-x-1 px-2 py-1 text-xs font-medium rounded-md transition-colors flex-1 justify-center ${
+              filter === key
+                ? 'bg-white text-medstaff-primary shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <span>{label}</span>
+            {count > 0 && (
+              <span className={`text-xs px-1 rounded-full ${
+                filter === key ? 'bg-medstaff-primary/20' : 'bg-gray-200'
+              }`}>
+                {count}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Lista de Notificações */}
+      <div className="space-y-2 max-h-96 overflow-y-auto">
+        {notifications.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            <Bell className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+            <p className="text-sm">
+              {filter === 'unread' ? 'Nenhuma notificação não lida' :
+               filter === 'important' ? 'Nenhuma notificação importante' :
+               filter === 'system' ? 'Nenhuma notificação do sistema' :
+               'Nenhuma notificação encontrada'}
+            </p>
+          </div>
+        ) : (
+          notifications.map(notification => (
+            <div 
+              key={notification.id} 
+              className={`border-l-4 rounded-lg p-3 transition-all hover:shadow-sm cursor-pointer ${
+                getPriorityColor(notification.priority)
+              } ${!notification.read ? 'ring-1 ring-blue-200' : ''}`}
+              onClick={() => !notification.read && markAsRead(notification.id)}
+            >
+              <div className="flex items-start justify-between mb-2">
+                <div className="flex items-start space-x-3 flex-1">
+                  {getNotificationIcon(notification.type, notification.category)}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center space-x-2">
+                      <p className={`text-sm font-medium ${
+                        !notification.read ? 'text-gray-900' : 'text-gray-700'
+                      }`}>
+                        {notification.title}
+                      </p>
+                      {!notification.read && (
+                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-600 mt-1 line-clamp-2">
+                      {notification.message}
+                    </p>
+                    <div className="flex items-center justify-between mt-2">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-xs text-gray-500">{notification.sender}</span>
+                        <span className="text-xs text-gray-400">•</span>
+                        <span className="text-xs text-gray-500">
+                          {formatTimeAgo(notification.createdAt)}
+                        </span>
+                      </div>
+                      
+                      {notification.actionRequired && (
+                        <button className="text-xs text-medstaff-primary hover:text-medstaff-secondary font-medium">
+                          Ver detalhes
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex flex-col items-end space-y-1">
+                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                    notification.priority === 'high' ? 'bg-red-100 text-red-600' :
+                    notification.priority === 'medium' ? 'bg-yellow-100 text-yellow-600' :
+                    'bg-green-100 text-green-600'
+                  }`}>
+                    {notification.priority === 'high' ? 'Alta' :
+                     notification.priority === 'medium' ? 'Média' : 'Baixa'}
+                  </span>
+                  
+                  {notification.actionRequired && (
+                    <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Resumo de Atividade */}
+      {notifications.length > 0 && (
+        <div className="bg-gradient-to-r from-medstaff-light to-medstaff-accent/20 border border-medstaff-secondary/30 rounded-lg p-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Bell className="w-4 h-4 text-medstaff-primary" />
+              <span className="text-sm font-semibold text-medstaff-primary">Centro de Notificações</span>
+            </div>
+            <div className="text-right">
+              <div className="text-lg font-bold text-medstaff-primary">
+                {stats.unread}
+              </div>
+              <div className="text-xs text-gray-600">Pendentes</div>
             </div>
           </div>
-        ))
+        </div>
       )}
     </div>
   )
@@ -536,7 +1205,7 @@ export interface WidgetConfig {
   title: string
   description: string
   component: React.FC<BaseWidgetProps>
-  type: 'estatisticas' | 'lista' | 'grafico' | 'calendario' | 'chat' | 'financeiro'
+  type: 'estatisticas' | 'lista' | 'grafico' | 'calendario' | 'chat' | 'financeiro' | 'produtividade' | 'sistema' | 'vendas' | 'equipe' | 'analytics'
   defaultSize: 'pequeno' | 'medio' | 'grande' | 'completo'
   refreshable: boolean
   configurable: boolean
@@ -631,5 +1300,60 @@ export const AVAILABLE_WIDGETS: WidgetConfig[] = [
     refreshable: true,
     configurable: true,
     permissions: ['finance.dre.view']
+  },
+  {
+    id: 'productivity-analytics',
+    title: 'Análise de Produtividade',
+    description: 'Métricas avançadas de produtividade da equipe',
+    component: ProductivityAnalyticsWidget,
+    type: 'produtividade',
+    defaultSize: 'grande',
+    refreshable: true,
+    configurable: true,
+    permissions: ['dashboard.view', 'analytics.view']
+  },
+  {
+    id: 'system-monitor',
+    title: 'Monitor do Sistema',
+    description: 'Monitoramento em tempo real do sistema',
+    component: SystemMonitorWidget,
+    type: 'sistema',
+    defaultSize: 'grande',
+    refreshable: true,
+    configurable: true,
+    permissions: ['system.monitor', 'dashboard.view']
+  },
+  {
+    id: 'sales-analytics',
+    title: 'Análise de Vendas',
+    description: 'Métricas de vendas e conversão',
+    component: SalesAnalyticsWidget,
+    type: 'vendas',
+    defaultSize: 'grande',
+    refreshable: true,
+    configurable: true,
+    permissions: ['sales.view', 'analytics.view']
+  },
+  {
+    id: 'team-management',
+    title: 'Gestão de Equipe',
+    description: 'Métricas de RH e gestão de pessoas',
+    component: TeamManagementWidget,
+    type: 'equipe',
+    defaultSize: 'grande',
+    refreshable: true,
+    configurable: true,
+    permissions: ['hr.view', 'team.manage']
+  },
+  {
+    id: 'financial-analytics',
+    title: 'Analytics Financeiro',
+    description: 'Análise financeira avançada com projeções',
+    component: FinancialAnalyticsWidget,
+    type: 'analytics',
+    defaultSize: 'grande',
+    refreshable: true,
+    configurable: true,
+    permissions: ['finance.analytics', 'dashboard.view']
   }
 ]

@@ -111,4 +111,76 @@
     @apply transform translate-x-full opacity-0;
     transition: transform 0.3s ease-in, opacity 0.3s ease-in;
   }
+
+  /* Form Step Animations */
+  .animate-fadeIn {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+
+  .animate-slideIn {
+    animation: slideIn 0.3s ease-out;
+  }
+
+  .animate-pulse-soft {
+    animation: pulseSoft 2s infinite;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateX(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes pulseSoft {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.7;
+    }
+  }
+
+  /* Step Indicator Animations */
+  .step-indicator {
+    @apply transition-all duration-300 ease-in-out;
+  }
+
+  .step-indicator.active {
+    @apply transform scale-110;
+  }
+
+  .step-indicator.completed {
+    @apply transform scale-105;
+  }
+
+  /* Form Field Animations */
+  .form-field {
+    @apply transition-all duration-200 ease-in-out;
+  }
+
+  .form-field:focus-within {
+    @apply transform scale-105;
+  }
+
+  .form-field.error {
+    @apply animate-pulse;
+    animation-duration: 0.5s;
+    animation-iteration-count: 3;
+  }
 }

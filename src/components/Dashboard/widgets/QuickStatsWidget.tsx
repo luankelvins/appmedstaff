@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import DashboardWidget from '../DashboardWidget'
 import { AdvancedMetrics } from '../AdvancedMetrics'
+import { widgetDataService } from '../../../services/widgetDataService'
 
 interface BaseWidgetProps {
   onRefresh?: () => void
@@ -52,16 +53,22 @@ const QuickStatsWidget: React.FC<BaseWidgetProps> = ({
       setLoading(true)
       setError(undefined)
       
-      // Simular carregamento de dados
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      // Buscar dados reais do Supabase
+      const dashboardStats = await widgetDataService.getDashboardStats()
+      const financialMetrics = await widgetDataService.getFinancialMetrics(2) // Últimos 2 meses para comparação
       
-      const mockStats: MetricData[] = [
+      // Calcular tendências
+      const currentRevenue = financialMetrics[0]?.revenue || 0
+      const previousRevenue = financialMetrics[1]?.revenue || 0
+      const revenueTrend = previousRevenue > 0 ? ((currentRevenue - previousRevenue) / previousRevenue) * 100 : 0
+      
+      const realStats: MetricData[] = [
         {
-          id: 'total-clients',
-          title: 'Total de Clientes',
-          value: 1247,
+          id: 'total-users',
+          title: 'Total de Usuários',
+          value: dashboardStats.totalUsers,
           trend: {
-            value: 12.5,
+            value: 12.5, // Pode ser calculado com dados históricos
             isPositive: true,
             period: 'vs mês anterior'
           },
@@ -71,16 +78,16 @@ const QuickStatsWidget: React.FC<BaseWidgetProps> = ({
         {
           id: 'revenue',
           title: 'Receita Mensal',
-          value: 'R$ 125.430',
+          value: `R$ ${currentRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
           trend: {
-            value: 8.2,
-            isPositive: true,
+            value: Math.abs(revenueTrend),
+            isPositive: revenueTrend >= 0,
             period: 'vs mês anterior'
           },
           target: {
-            value: 150000,
-            achieved: 125430,
-            percentage: 83.6
+            value: 500000, // Meta mensal
+            achieved: currentRevenue,
+            percentage: (currentRevenue / 500000) * 100
           },
           icon: DollarSign,
           color: 'green'
@@ -88,64 +95,35 @@ const QuickStatsWidget: React.FC<BaseWidgetProps> = ({
         {
           id: 'completed-tasks',
           title: 'Tarefas Concluídas',
-          value: 89,
+          value: dashboardStats.completedTasks,
           trend: {
             value: 5.1,
-            isPositive: false,
+            isPositive: dashboardStats.completedTasks > (dashboardStats.totalTasks * 0.8),
             period: 'vs semana anterior'
           },
           target: {
-            value: 100,
-            achieved: 89,
-            percentage: 89
+            value: dashboardStats.totalTasks,
+            achieved: dashboardStats.completedTasks,
+            percentage: dashboardStats.totalTasks > 0 ? (dashboardStats.completedTasks / dashboardStats.totalTasks) * 100 : 0
           },
           icon: CheckCircle,
-          color: 'purple'
+          color: 'emerald'
         },
         {
-          id: 'pending-tasks',
-          title: 'Tarefas Pendentes',
-          value: 23,
+          id: 'active-users',
+          title: 'Usuários Ativos',
+          value: dashboardStats.activeUsers,
           trend: {
             value: 15.3,
-            isPositive: false,
+            isPositive: true,
             period: 'vs semana anterior'
           },
-          icon: Clock,
-          color: 'yellow'
-        },
-        {
-          id: 'conversion-rate',
-          title: 'Taxa de Conversão',
-          value: '24.8%',
-          trend: {
-            value: 3.2,
-            isPositive: true,
-            period: 'vs mês anterior'
-          },
-          target: {
-            value: 30,
-            achieved: 24.8,
-            percentage: 82.7
-          },
           icon: Target,
-          color: 'indigo'
-        },
-        {
-          id: 'urgent-issues',
-          title: 'Questões Urgentes',
-          value: 5,
-          trend: {
-            value: 2.1,
-            isPositive: true,
-            period: 'vs ontem'
-          },
-          icon: AlertCircle,
-          color: 'red'
+          color: 'purple'
         }
       ]
       
-      setStats(mockStats)
+      setStats(realStats)
     } catch (err) {
       setError('Erro ao carregar estatísticas')
       console.error('Error loading stats:', err)

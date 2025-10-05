@@ -10,6 +10,7 @@ import {
   ArrowRight
 } from 'lucide-react'
 import DashboardWidget from '../DashboardWidget'
+import { widgetDataService } from '../../../services/widgetDataService'
 
 interface BaseWidgetProps {
   onRefresh?: () => void
@@ -43,67 +44,29 @@ const NotificationsWidget: React.FC<BaseWidgetProps> = ({
       setLoading(true)
       setError(undefined)
       
-      // Simular carregamento de dados
-      await new Promise(resolve => setTimeout(resolve, 500))
+      // Buscar notificações reais do Supabase
+      // Obter o usuário atual (simulado por enquanto)
+      const currentUserId = 'current-user-id' // TODO: Obter do contexto de autenticação
       
-      const mockNotifications: Notification[] = [
-        {
-          id: '1',
-          title: 'Nova tarefa atribuída',
-          message: 'Você foi designado para revisar a proposta comercial',
-          type: 'info',
-          category: 'task',
-          priority: 'high',
-          read: false,
-          createdAt: '2024-01-15T10:30:00Z',
-          actionUrl: '/tasks/123'
-        },
-        {
-          id: '2',
-          title: 'Pagamento vencido',
-          message: 'Fatura #1234 está vencida há 3 dias',
-          type: 'warning',
-          category: 'financial',
-          priority: 'urgent',
-          read: false,
-          createdAt: '2024-01-15T09:15:00Z',
-          actionUrl: '/financial/invoices/1234'
-        },
-        {
-          id: '3',
-          title: 'Lead convertido',
-          message: 'Lead "Clínica São Paulo" foi convertido em cliente',
-          type: 'success',
-          category: 'commercial',
-          priority: 'medium',
-          read: false,
-          createdAt: '2024-01-15T08:45:00Z',
-          actionUrl: '/clients/456'
-        },
-        {
-          id: '4',
-          title: 'Backup concluído',
-          message: 'Backup automático do sistema realizado com sucesso',
-          type: 'success',
-          category: 'system',
-          priority: 'low',
-          read: true,
-          createdAt: '2024-01-14T23:00:00Z'
-        },
-        {
-          id: '5',
-          title: 'Erro no processamento',
-          message: 'Falha ao processar documento. Verifique os dados',
-          type: 'error',
-          category: 'operational',
-          priority: 'high',
-          read: false,
-          createdAt: '2024-01-14T16:20:00Z',
-          actionUrl: '/documents/error-log'
-        }
-      ]
+      const supabaseNotifications = await widgetDataService.getUserNotifications(currentUserId, 10)
       
-      setNotifications(mockNotifications)
+      // Mapear para o formato esperado pelo componente
+      const mappedNotifications: Notification[] = supabaseNotifications.map(notification => ({
+        id: notification.id,
+        title: notification.title,
+        message: notification.message,
+        type: notification.type === 'task' ? 'info' : 
+              notification.type === 'system' ? 'info' : 
+              notification.type as 'info' | 'success' | 'warning' | 'error',
+        category: notification.type === 'task' ? 'task' : 
+                 notification.type === 'system' ? 'system' : 'operational',
+        priority: notification.priority,
+        read: notification.is_read,
+        createdAt: notification.created_at,
+        actionUrl: notification.action_url
+      }))
+      
+      setNotifications(mappedNotifications)
     } catch (err) {
       setError('Erro ao carregar notificações')
       console.error('Error loading notifications:', err)

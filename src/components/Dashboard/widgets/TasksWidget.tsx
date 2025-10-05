@@ -9,6 +9,7 @@ import {
   Plus
 } from 'lucide-react'
 import DashboardWidget from '../DashboardWidget'
+import { supabase } from '../../../config/supabase'
 
 interface BaseWidgetProps {
   onRefresh?: () => void
@@ -49,74 +50,68 @@ const TasksWidget: React.FC<BaseWidgetProps> = ({
       setLoading(true)
       setError(undefined)
       
-      // Simular carregamento de dados
-      await new Promise(resolve => setTimeout(resolve, 800))
-      
-      const mockTasks: TaskItem[] = [
-        {
-          id: '1',
-          title: 'Revisar proposta comercial',
-          description: 'Análise da proposta para cliente PJ',
-          status: 'pending',
-          priority: 'high',
-          dueDate: '2024-01-15',
-          assignedTo: {
-            id: '1',
-            name: 'Ana Silva'
-          },
-          project: {
-            id: '1',
-            name: 'Comercial',
-            color: 'blue'
-          }
-        },
-        {
-          id: '2',
-          title: 'Emitir NF para cliente',
-          description: 'Nota fiscal referente ao serviço prestado',
-          status: 'in_progress',
-          priority: 'medium',
-          dueDate: '2024-01-14',
-          assignedTo: {
-            id: '2',
-            name: 'Carlos Santos'
-          },
-          project: {
-            id: '2',
-            name: 'Operacional',
-            color: 'green'
-          }
-        },
-        {
-          id: '3',
-          title: 'Atualizar documentos RH',
-          status: 'overdue',
-          priority: 'urgent',
-          dueDate: '2024-01-12',
-          assignedTo: {
-            id: '3',
-            name: 'Maria Costa'
-          },
-          project: {
-            id: '3',
-            name: 'RH',
-            color: 'purple'
-          }
-        },
-        {
-          id: '4',
-          title: 'Reunião de planejamento',
-          status: 'completed',
-          priority: 'medium',
-          dueDate: '2024-01-13',
-          assignedTo: {
-            id: '4',
-            name: 'João Oliveira'
+      // Buscar tarefas reais do Supabase
+      const { data: tasksData, error: tasksError } = await supabase
+        .from('tasks')
+        .select(`
+          id,
+          title,
+          description,
+          status,
+          priority,
+          due_date,
+          assigned_to,
+          profiles!tasks_assigned_to_fkey(id, full_name)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(10)
+
+      if (tasksError) throw tasksError
+
+      // Mapear dados para o formato esperado pelo componente
+      const realTasks: TaskItem[] = (tasksData || []).map(task => {
+        // Determinar status baseado na data de vencimento
+        let taskStatus = task.status as TaskItem['status']
+        if (task.due_date && new Date(task.due_date) < new Date() && task.status !== 'completed') {
+          taskStatus = 'overdue'
+        }
+
+        // Mapear prioridade
+        let taskPriority: TaskItem['priority'] = 'medium'
+        if (task.priority === 'alta' || task.priority === 'high') taskPriority = 'high'
+        else if (task.priority === 'baixa' || task.priority === 'low') taskPriority = 'low'
+        else if (task.priority === 'urgente' || task.priority === 'urgent') taskPriority = 'urgent'
+
+        // Determinar cor do projeto baseado no status
+        const getProjectColor = (status: string) => {
+          switch (status) {
+            case 'completed': return 'green'
+            case 'in_progress': return 'blue'
+            case 'overdue': return 'red'
+            default: return 'gray'
           }
         }
-      ]
+
+        return {
+          id: task.id,
+          title: task.title,
+          description: task.description || undefined,
+          status: taskStatus,
+          priority: taskPriority,
+          dueDate: task.due_date || undefined,
+          assignedTo: task.profiles ? {
+            id: (task.profiles as any).id,
+            name: (task.profiles as any).full_name || 'Usuário'
+          } : undefined,
+          project: {
+            id: 'default',
+            name: 'Geral',
+            color: getProjectColor(taskStatus)
+          }
+        }
+      })
       
-      setTasks(mockTasks)
+      setTasks(realTasks)
     } catch (err) {
       setError('Erro ao carregar tarefas')
       console.error('Error loading tasks:', err)

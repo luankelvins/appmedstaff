@@ -7,6 +7,9 @@ import { AuthProvider } from './contexts/AuthContext'
 import App from './App.tsx'
 import './index.css'
 
+// Inicializar sistema de monitoramento de performance
+import './services/performanceInitializer'
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
