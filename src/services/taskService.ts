@@ -120,15 +120,88 @@ class TaskService {
     page: number = 1,
     limit: number = 10
   ): Promise<TaskListResponse> {
-    console.log('📋 TaskService - getTasks executado (MOCK ESTÁTICO)');
+    console.log('📋 TaskService - getTasks executado');
     
-    // Retorno imediato para debug
+    let filteredTasks = [...this.tasks];
+
+    // Aplicar filtros
+    if (filter) {
+      if (filter.search) {
+        const searchLower = filter.search.toLowerCase();
+        filteredTasks = filteredTasks.filter(task => 
+          task.title.toLowerCase().includes(searchLower) ||
+          (task.description && task.description.toLowerCase().includes(searchLower))
+        );
+      }
+      
+      if (filter.status && !Array.isArray(filter.status)) {
+        filteredTasks = filteredTasks.filter(task => task.status === filter.status);
+      }
+      
+      if (filter.priority && !Array.isArray(filter.priority)) {
+        filteredTasks = filteredTasks.filter(task => task.priority === filter.priority);
+      }
+      
+      if (filter.assignedTo) {
+        filteredTasks = filteredTasks.filter(task => task.assignedTo === filter.assignedTo);
+      }
+      
+      if (filter.category) {
+        filteredTasks = filteredTasks.filter(task => task.category === filter.category);
+      }
+      
+      if (filter.project) {
+        filteredTasks = filteredTasks.filter(task => task.project === filter.project);
+      }
+    }
+
+    // Aplicar ordenação
+    if (sort) {
+      filteredTasks.sort((a, b) => {
+        let aValue: any, bValue: any;
+        
+        switch (sort.field) {
+          case 'title':
+            aValue = a.title;
+            bValue = b.title;
+            break;
+          case 'createdAt':
+            aValue = a.createdAt;
+            bValue = b.createdAt;
+            break;
+          case 'dueDate':
+            aValue = a.dueDate || new Date(0);
+            bValue = b.dueDate || new Date(0);
+            break;
+          case 'priority':
+            const priorityOrder = { low: 1, medium: 2, high: 3, urgent: 4 };
+            aValue = priorityOrder[a.priority];
+            bValue = priorityOrder[b.priority];
+            break;
+          default:
+            return 0;
+        }
+        
+        if (aValue < bValue) return sort.direction === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sort.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    const total = filteredTasks.length;
+    const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
+    
+    // Aplicar paginação
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedTasks = filteredTasks.slice(startIndex, endIndex);
+    
     return {
-      tasks: this.tasks,
-      total: this.tasks.length,
-      page: 1,
-      limit: this.tasks.length,
-      totalPages: 1
+      tasks: paginatedTasks,
+      total,
+      page,
+      limit,
+      totalPages
     };
   }
 

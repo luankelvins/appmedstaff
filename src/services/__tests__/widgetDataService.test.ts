@@ -212,15 +212,21 @@ describe('WidgetDataService', () => {
         return await fetchFn()
       })
 
-      mockSupabaseQuery.then.mockResolvedValueOnce({ data: mockProductivityMetrics, error: null })
-      mockSupabaseQuery.then.mockResolvedValueOnce({ data: mockProfiles, error: null })
+      // Mock para primeira consulta (métricas agregadas) - termina com .lte()
+      mockSupabaseQuery.lte.mockResolvedValueOnce({ data: mockProductivityMetrics, error: null })
+      
+      // Mock para segunda consulta (top performers) - termina com .limit()
+      const mockTopPerformersData = mockProductivityMetrics.map(m => ({
+        ...m,
+        profiles: { id: m.user_id, full_name: mockProfiles.find(p => p.id === m.user_id)?.full_name }
+      }))
+      mockSupabaseQuery.limit.mockResolvedValueOnce({ data: mockTopPerformersData, error: null })
 
       // Executar teste
       const result = await service.getProductivityMetrics()
 
       // Verificações
       expect(supabase.from).toHaveBeenCalledWith('productivity_metrics')
-      expect(supabase.from).toHaveBeenCalledWith('profiles')
       expect(result).toHaveProperty('efficiency_avg')
       expect(result).toHaveProperty('tasks_completed_total')
       expect(result).toHaveProperty('satisfaction_avg')
@@ -233,7 +239,7 @@ describe('WidgetDataService', () => {
         return await fetchFn()
       })
 
-      mockSupabaseQuery.then.mockResolvedValue({ data: null, error: { message: 'Database error' } })
+      mockSupabaseQuery.lte.mockResolvedValue({ data: null, error: { message: 'Database error' } })
 
       // Executar teste e verificar erro
       await expect(service.getProductivityMetrics()).rejects.toThrow('Database error')
@@ -245,8 +251,8 @@ describe('WidgetDataService', () => {
   describe('getSystemStats', () => {
     it('deve retornar estatísticas do sistema', async () => {
       // Configurar mocks
-      mockSupabaseQuery.then.mockResolvedValueOnce({ data: mockSystemMetrics, error: null })
-      mockSupabaseQuery.then.mockResolvedValueOnce({ data: mockServiceStatus, error: null })
+      mockSupabaseQuery.order.mockResolvedValueOnce({ data: mockSystemMetrics, error: null })
+      mockSupabaseQuery.order.mockResolvedValueOnce({ data: mockServiceStatus, error: null })
 
       // Executar teste
       const result = await service.getSystemStats()
@@ -263,8 +269,8 @@ describe('WidgetDataService', () => {
 
     it('deve retornar valores padrão quando não há dados', async () => {
       // Configurar mocks para dados vazios
-      mockSupabaseQuery.then.mockResolvedValueOnce({ data: [], error: null })
-      mockSupabaseQuery.then.mockResolvedValueOnce({ data: [], error: null })
+      mockSupabaseQuery.order.mockResolvedValueOnce({ data: [], error: null })
+      mockSupabaseQuery.order.mockResolvedValueOnce({ data: [], error: null })
 
       // Executar teste
       const result = await service.getSystemStats()
@@ -284,14 +290,16 @@ describe('WidgetDataService', () => {
   describe('getUserNotifications', () => {
     it('deve retornar notificações do usuário', async () => {
       // Configurar mock
-      mockSupabaseQuery.then.mockResolvedValue({ data: mockNotifications, error: null })
+      mockSupabaseQuery.limit.mockResolvedValue({ data: mockNotifications, error: null })
 
       // Executar teste
       const result = await service.getUserNotifications('user1', 10)
 
       // Verificações
       expect(supabase.from).toHaveBeenCalledWith('notifications')
+      expect(mockSupabaseQuery.select).toHaveBeenCalledWith('*')
       expect(mockSupabaseQuery.eq).toHaveBeenCalledWith('user_id', 'user1')
+      expect(mockSupabaseQuery.order).toHaveBeenCalledWith('created_at', { ascending: false })
       expect(mockSupabaseQuery.limit).toHaveBeenCalledWith(10)
       expect(result).toEqual(mockNotifications)
     })
@@ -300,14 +308,17 @@ describe('WidgetDataService', () => {
   describe('markNotificationAsRead', () => {
     it('deve marcar notificação como lida', async () => {
       // Configurar mock
-      mockSupabaseQuery.then.mockResolvedValue({ data: null, error: null })
+      mockSupabaseQuery.eq.mockResolvedValue({ data: null, error: null })
 
       // Executar teste
       await service.markNotificationAsRead('notification1')
 
       // Verificações
       expect(supabase.from).toHaveBeenCalledWith('notifications')
-      expect(mockSupabaseQuery.update).toHaveBeenCalledWith({ is_read: true })
+      expect(mockSupabaseQuery.update).toHaveBeenCalledWith({ 
+        is_read: true, 
+        updated_at: expect.any(String) 
+      })
       expect(mockSupabaseQuery.eq).toHaveBeenCalledWith('id', 'notification1')
     })
   })
@@ -334,7 +345,7 @@ describe('WidgetDataService', () => {
 
       // Verificações
       expect(supabase.from).toHaveBeenCalledWith('notifications')
-      expect(mockSupabaseQuery.insert).toHaveBeenCalledWith(newNotification)
+      expect(mockSupabaseQuery.insert).toHaveBeenCalledWith([newNotification])
       expect(result).toEqual(createdNotification)
     })
   })
@@ -412,8 +423,9 @@ describe('WidgetDataService', () => {
       // Verificações
       expect(paginationService.paginate).toHaveBeenCalledWith(
         'notifications',
-        { page: 1, limit: 10, filters: { user_id: 'user1' } },
-        '*'
+        { page: 1, limit: 10 },
+        '*',
+        expect.any(Function)
       )
       expect(result).toEqual(mockPaginatedResult)
     })

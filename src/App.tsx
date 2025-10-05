@@ -21,7 +21,7 @@ import EmployeeCardDemo from './pages/EmployeeCardDemo'
 import EmployeeProfileDemo from './components/Integration/EmployeeProfileDemo'
 import SupabaseInspector from './pages/SupabaseInspector'
 import TaskAssignmentPage from './pages/TaskAssignment'
-import { AdminDashboard } from './pages/AdminDashboard'
+
 import ImprovedFeedDemo from './pages/ImprovedFeedDemo'
 
 // Componente de loading para Suspense
@@ -92,8 +92,7 @@ function App() {
               <Route path="/partners/housing-assistance" element={<HousingAssistance />} />
               <Route path="/partners/tax-recovery" element={<TaxRecovery />} />
               
-              {/* Administração */}
-              <Route path="/admin" element={<AdminDashboard />} />
+
               
               {/* Auditoria */}
               <Route path="/audit" element={<Audit />} />

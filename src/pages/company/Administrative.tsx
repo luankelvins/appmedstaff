@@ -1,6 +1,94 @@
-import React, { useState } from 'react'
-import { FileText, Upload, Download, Trash2, Clock, User, Calendar, Plus, Search } from 'lucide-react'
+import React, { useState, useEffect, lazy, Suspense } from 'react'
+import { 
+  FileText, 
+  Upload, 
+  Download, 
+  Trash2, 
+  Clock, 
+  User, 
+  Calendar, 
+  Plus, 
+  Search,
+  Users,
+  Settings,
+  BarChart3,
+  Shield,
+  Building2,
+  Edit,
+  Eye,
+  Filter,
+  ChevronRight,
+  UserPlus,
+  Database,
+  Activity,
+  AlertCircle,
+  CheckCircle,
+  TrendingUp,
+  FileCheck,
+  UserCheck,
+  Cog,
+  Building,
+  Mail,
+  Phone,
+  MapPin,
+  DollarSign,
+  XCircle
+} from 'lucide-react'
+import { Card } from '../../components/UI/Card'
+import { Button } from '../../components/UI/Button'
 import { usePermissions } from '../../hooks/usePermissions'
+import { PermissionSlug } from '../../types/auth'
+import { DepartmentForm } from '../../components/Admin/DepartmentForm'
+import TimeInternoForm from '../../components/CRM/TimeInternoForm'
+import { TimeInternoForm as TimeInternoFormType } from '../../types/crm'
+
+// Lazy loading para componentes pesados
+const TimeValidationDashboard = lazy(() => import('../../components/TimeValidationDashboard'))
+
+interface NavigationItem {
+  id: AdminSection
+  label: string
+  icon: React.ComponentType<any>
+  permission: PermissionSlug
+}
+
+interface Employee {
+  id: string
+  name: string
+  email: string
+  phone: string
+  position: string
+  department: string
+  salary: number
+  hireDate: Date
+  status: 'active' | 'inactive'
+  address: string
+  emergencyContact: string
+  emergencyPhone: string
+  cpf: string
+  rg: string
+  birthDate: Date
+  createdAt: Date
+  updatedAt: Date
+}
+
+interface Department {
+  id: string
+  name: string
+  code: string
+  description: string
+  managerId?: string
+  managerName?: string
+  location: string
+  phone: string
+  email: string
+  budget: number
+  costCenter: string
+  status: 'active' | 'inactive'
+  employees: Employee[]
+  createdAt: Date
+  updatedAt: Date
+}
 
 interface Document {
   id: string
@@ -22,6 +110,52 @@ interface TimeEntry {
   breakTime: number
   totalHours: number
   status: 'present' | 'absent' | 'late' | 'early_leave'
+}
+
+type AdminSection = 
+  | 'overview' 
+  | 'users' 
+  | 'documents' 
+  | 'attendance' 
+  | 'settings' 
+  | 'reports' 
+  | 'audit'
+  | 'employees'
+  | 'departments'
+  | 'employee-form'
+  | 'department-form'
+  | 'time-validation'
+
+interface UserData {
+  id: string
+  name: string
+  email: string
+  role: string
+  department: string
+  status: 'active' | 'inactive' | 'pending'
+  lastLogin: string
+  permissions: string[]
+}
+
+interface SystemSetting {
+  id: string
+  category: string
+  name: string
+  value: string
+  description: string
+  type: 'text' | 'boolean' | 'number' | 'select'
+  options?: string[]
+}
+
+interface AuditLog {
+  id: string
+  userId: string
+  userName: string
+  action: string
+  resource: string
+  timestamp: string
+  details: string
+  ipAddress: string
 }
 
 const mockDocuments: Document[] = [
@@ -89,6 +223,99 @@ const mockTimeEntries: TimeEntry[] = [
   }
 ]
 
+const mockUsers: UserData[] = [
+  {
+    id: '1',
+    name: 'João Silva',
+    email: 'joao.silva@empresa.com',
+    role: 'Administrador',
+    department: 'TI',
+    status: 'active',
+    lastLogin: '2024-01-22 14:30',
+    permissions: ['admin.full', 'users.manage', 'docs.manage']
+  },
+  {
+    id: '2',
+    name: 'Maria Santos',
+    email: 'maria.santos@empresa.com',
+    role: 'Gerente RH',
+    department: 'Recursos Humanos',
+    status: 'active',
+    lastLogin: '2024-01-22 09:15',
+    permissions: ['hr.manage', 'attendance.view', 'reports.hr']
+  },
+  {
+    id: '3',
+    name: 'Pedro Costa',
+    email: 'pedro.costa@empresa.com',
+    role: 'Analista',
+    department: 'Financeiro',
+    status: 'pending',
+    lastLogin: '2024-01-21 16:45',
+    permissions: ['finance.view', 'reports.finance']
+  }
+]
+
+const mockSettings: SystemSetting[] = [
+  {
+    id: '1',
+    category: 'Geral',
+    name: 'Nome da Empresa',
+    value: 'MedStaff',
+    description: 'Nome oficial da empresa',
+    type: 'text'
+  },
+  {
+    id: '2',
+    category: 'Segurança',
+    name: 'Sessão Expira em (minutos)',
+    value: '60',
+    description: 'Tempo limite para expiração da sessão',
+    type: 'number'
+  },
+  {
+    id: '3',
+    category: 'Notificações',
+    name: 'Enviar Email de Boas-vindas',
+    value: 'true',
+    description: 'Enviar email automático para novos usuários',
+    type: 'boolean'
+  }
+]
+
+const mockAuditLogs: AuditLog[] = [
+  {
+    id: '1',
+    userId: '1',
+    userName: 'João Silva',
+    action: 'LOGIN',
+    resource: 'Sistema',
+    timestamp: '2024-01-22 14:30:15',
+    details: 'Login realizado com sucesso',
+    ipAddress: '192.168.1.100'
+  },
+  {
+    id: '2',
+    userId: '2',
+    userName: 'Maria Santos',
+    action: 'CREATE_USER',
+    resource: 'Usuários',
+    timestamp: '2024-01-22 10:15:30',
+    details: 'Criou novo usuário: Pedro Costa',
+    ipAddress: '192.168.1.101'
+  },
+  {
+    id: '3',
+    userId: '1',
+    userName: 'João Silva',
+    action: 'UPDATE_SETTINGS',
+    resource: 'Configurações',
+    timestamp: '2024-01-22 09:45:22',
+    details: 'Alterou configuração: Sessão Expira em',
+    ipAddress: '192.168.1.100'
+  }
+]
+
 const categoryLabels = {
   contract: 'Contrato',
   policy: 'Política',
@@ -113,11 +340,125 @@ const statusColors = {
 
 export const Administrative: React.FC = () => {
   const permissions = usePermissions()
-  const [activeTab, setActiveTab] = useState<'documents' | 'attendance'>('documents')
+  const [activeSection, setActiveSection] = useState<AdminSection>('overview')
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | undefined>()
+  const [selectedDepartment, setSelectedDepartment] = useState<Department | undefined>()
+  const [searchTerm, setSearchTerm] = useState('')
+  const [teamMembers, setTeamMembers] = useState<Employee[]>([])
+  const [internalDepartments, setInternalDepartments] = useState<Department[]>([])
+  const [loading, setLoading] = useState(true)
   const [documents] = useState<Document[]>(mockDocuments)
   const [timeEntries] = useState<TimeEntry[]>(mockTimeEntries)
-  const [searchTerm, setSearchTerm] = useState('')
+  const [users] = useState<UserData[]>(mockUsers)
+  const [settings] = useState<SystemSetting[]>(mockSettings)
+  const [auditLogs] = useState<AuditLog[]>(mockAuditLogs)
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
+  const [employeeSearchTerm, setEmployeeSearchTerm] = useState('')
+  const [departmentSearchTerm, setDepartmentSearchTerm] = useState('')
+  
+  // Estados para feedback visual e loading refinado
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [operationFeedback, setOperationFeedback] = useState<{
+    type: 'success' | 'error' | 'info' | null
+    message: string
+  }>({ type: null, message: '' })
+  const [sectionLoading, setSectionLoading] = useState<Record<string, boolean>>({})
+
+  // Aliases para compatibilidade com as novas seções
+  const employees = teamMembers
+  const departments = internalDepartments
+
+  useEffect(() => {
+    // Simular carregamento de dados
+    const loadData = async () => {
+      setLoading(true)
+      try {
+        // Aqui você carregaria os dados reais da API
+        const mockEmployees: Employee[] = [
+          {
+            id: '1',
+            name: 'João Silva',
+            email: 'joao@example.com',
+            phone: '(11) 99999-9999',
+            position: 'Desenvolvedor',
+            department: 'TI',
+            salary: 5000,
+            hireDate: new Date('2023-01-15'),
+            status: 'active',
+            address: 'Rua A, 123',
+            emergencyContact: 'Maria Silva',
+            emergencyPhone: '(11) 88888-8888',
+            cpf: '123.456.789-00',
+            rg: '12.345.678-9',
+            birthDate: new Date('1990-05-15'),
+            createdAt: new Date(),
+            updatedAt: new Date()
+          },
+          {
+            id: '2',
+            name: 'Ana Costa',
+            email: 'ana@example.com',
+            phone: '(11) 88888-8888',
+            position: 'Designer',
+            department: 'Marketing',
+            salary: 4500,
+            hireDate: new Date('2023-03-10'),
+            status: 'active',
+            address: 'Rua B, 456',
+            emergencyContact: 'Pedro Costa',
+            emergencyPhone: '(11) 77777-7777',
+            cpf: '987.654.321-00',
+            rg: '98.765.432-1',
+            birthDate: new Date('1992-08-20'),
+            createdAt: new Date(),
+            updatedAt: new Date()
+          }
+        ]
+
+        const mockDepartments: Department[] = [
+          {
+            id: '1',
+            name: 'Tecnologia da Informação',
+            code: 'TI',
+            description: 'Departamento responsável pela tecnologia',
+            location: 'Prédio A - 3º andar',
+            phone: '(11) 3333-3333',
+            email: 'ti@example.com',
+            budget: 100000,
+            costCenter: 'CC001',
+            status: 'active',
+            employees: [mockEmployees[0]],
+            createdAt: new Date(),
+            updatedAt: new Date()
+          },
+          {
+            id: '2',
+            name: 'Marketing',
+            code: 'MKT',
+            description: 'Departamento de marketing e comunicação',
+            location: 'Prédio B - 2º andar',
+            phone: '(11) 4444-4444',
+            email: 'marketing@example.com',
+            budget: 75000,
+            costCenter: 'CC002',
+            status: 'active',
+            employees: [mockEmployees[1]],
+            createdAt: new Date(),
+            updatedAt: new Date()
+          }
+        ]
+
+        setTeamMembers(mockEmployees)
+        setInternalDepartments(mockDepartments)
+      } catch (error) {
+        console.error('Erro ao carregar dados:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadData()
+  }, [])
 
   const filteredDocuments = documents.filter(doc => {
     const matchesSearch = doc.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -125,80 +466,497 @@ export const Administrative: React.FC = () => {
     return matchesSearch && matchesCategory
   })
 
+  const filteredUsers = users.filter(user => 
+    user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    user.role.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
+  // Funções utilitárias para feedback visual
+  const showFeedback = (type: 'success' | 'error' | 'info', message: string) => {
+    setOperationFeedback({ type, message })
+    setTimeout(() => {
+      setOperationFeedback({ type: null, message: '' })
+    }, 5000)
+  }
+
+  const setSectionLoadingState = (section: string, loading: boolean) => {
+    setSectionLoading(prev => ({ ...prev, [section]: loading }))
+  }
+
+  const handleSaveEmployee = async (employee: Employee) => {
+    setIsSubmitting(true)
+    try {
+      if (selectedEmployee) {
+        // Atualizar funcionário existente
+        setTeamMembers(prev => prev.map(emp => emp.id === employee.id ? employee : emp))
+        showFeedback('success', 'Funcionário atualizado com sucesso!')
+      } else {
+        // Adicionar novo funcionário
+        setTeamMembers(prev => [...prev, employee])
+        showFeedback('success', 'Funcionário criado com sucesso!')
+      }
+      setActiveSection('employees')
+      setSelectedEmployee(undefined)
+    } catch (error) {
+      showFeedback('error', 'Erro ao salvar funcionário. Tente novamente.')
+      console.error('Erro ao salvar funcionário:', error)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleSaveDepartment = async (department: Department) => {
+    setIsSubmitting(true)
+    try {
+      if (selectedDepartment) {
+        // Atualizar departamento existente
+        setInternalDepartments(prev => prev.map(dept => dept.id === department.id ? department : dept))
+        showFeedback('success', 'Departamento atualizado com sucesso!')
+      } else {
+        // Adicionar novo departamento
+        setInternalDepartments(prev => [...prev, department])
+        showFeedback('success', 'Departamento criado com sucesso!')
+      }
+      setActiveSection('departments')
+      setSelectedDepartment(undefined)
+    } catch (error) {
+      showFeedback('error', 'Erro ao salvar departamento. Tente novamente.')
+      console.error('Erro ao salvar departamento:', error)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleEditEmployee = (employee: Employee) => {
+    setSelectedEmployee(employee)
+    setActiveSection('employee-form')
+  }
+
+  const handleEditDepartment = (department: Department) => {
+    setSelectedDepartment(department)
+    setActiveSection('department-form')
+  }
+
+  const handleDeleteEmployee = (employeeId: string) => {
+    if (confirm('Tem certeza que deseja excluir este funcionário?')) {
+      setTeamMembers(prev => prev.filter(emp => emp.id !== employeeId))
+    }
+  }
+
+  const handleDeleteDepartment = (departmentId: string) => {
+    if (confirm('Tem certeza que deseja excluir este departamento?')) {
+      setInternalDepartments(prev => prev.filter(dept => dept.id !== departmentId))
+    }
+  }
+
   const handleUploadDocument = () => {
-    // Implementar upload de documento
     console.log('Upload de documento')
   }
 
   const handleDownloadDocument = (doc: Document) => {
-    // Implementar download de documento
     console.log('Download do documento:', doc.name)
   }
 
   const handleDeleteDocument = (id: string) => {
     if (confirm('Tem certeza que deseja excluir este documento?')) {
-      // Implementar exclusão de documento
       console.log('Excluindo documento:', id)
     }
   }
 
-  if (!permissions.hasPermission('admin.docs.read') && !permissions.hasPermission('hr.attendance.read')) {
+  const handleCreateUser = () => {
+    console.log('Criar novo usuário')
+  }
+
+  const handleEditUser = (user: UserData) => {
+    console.log('Editar usuário:', user.name)
+  }
+
+  const handleDeleteUser = (id: string) => {
+    if (confirm('Tem certeza que deseja excluir este usuário?')) {
+      console.log('Excluindo usuário:', id)
+    }
+  }
+
+  const handleUpdateSetting = (setting: SystemSetting, newValue: string) => {
+    console.log('Atualizando configuração:', setting.name, 'para:', newValue)
+  }
+
+  if (!permissions.hasPermission('dashboard.view')) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <FileText className="mx-auto h-12 w-12 text-gray-400" />
+          <Shield className="mx-auto h-12 w-12 text-gray-400" />
           <h3 className="mt-2 text-sm font-medium text-gray-900">Acesso negado</h3>
           <p className="mt-1 text-sm text-gray-500">
-            Você não tem permissão para acessar esta seção.
+            Você não tem permissão para acessar esta seção administrativa.
           </p>
         </div>
       </div>
     )
   }
 
+  const navigationItems: NavigationItem[] = [
+    { id: 'overview', label: 'Visão Geral', icon: BarChart3, permission: 'dashboard.view' as PermissionSlug },
+    { id: 'users', label: 'Gestão de Usuários', icon: Users, permission: 'rbac.user.manage' as PermissionSlug },
+    { id: 'employees', label: 'Funcionários', icon: UserPlus, permission: 'rbac.user.manage' as PermissionSlug },
+    { id: 'departments', label: 'Departamentos', icon: Building, permission: 'rbac.user.manage' as PermissionSlug },
+    { id: 'documents', label: 'Documentos', icon: FileText, permission: 'admin.docs.read' as PermissionSlug },
+    { id: 'attendance', label: 'Ponto Interno', icon: Clock, permission: 'hr.attendance.read' as PermissionSlug },
+    { id: 'time-validation', label: 'Validação de Ponto', icon: CheckCircle, permission: 'hr.attendance.read' as PermissionSlug },
+    { id: 'settings', label: 'Configurações', icon: Settings, permission: 'rbac.role.manage' as PermissionSlug },
+    { id: 'reports', label: 'Relatórios', icon: BarChart3, permission: 'finance.dre.view' as PermissionSlug },
+    { id: 'audit', label: 'Auditoria', icon: Shield, permission: 'audit.read' as PermissionSlug }
+  ]
+
+  const visibleNavItems = navigationItems.filter(item => 
+    permissions.hasPermission(item.permission)
+  )
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Administrativo</h1>
-        <p className="text-gray-600">Gestão de documentos e controle de ponto</p>
+      {/* Feedback Visual */}
+      {operationFeedback && (
+        <div className={`p-4 rounded-lg border ${
+          operationFeedback.type === 'success' 
+            ? 'bg-green-50 border-green-200 text-green-800' 
+            : 'bg-red-50 border-red-200 text-red-800'
+        }`}>
+          <div className="flex items-center">
+            {operationFeedback.type === 'success' ? (
+              <CheckCircle className="h-5 w-5 mr-2" />
+            ) : (
+              <XCircle className="h-5 w-5 mr-2" />
+            )}
+            <span className="font-medium">{operationFeedback.message}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Header */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Administrativo</h1>
+            <p className="text-gray-600 mt-1">Gestão completa do sistema e operações administrativas</p>
+          </div>
+          <div className="flex items-center space-x-3">
+            <div className="bg-blue-50 p-3 rounded-lg">
+              <Building2 className="h-8 w-8 text-blue-600" />
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Tabs */}
-      <div className="border-b border-gray-200">
-        <nav className="-mb-px flex space-x-8">
-          {permissions.hasPermission('admin.docs.read') && (
-            <button
-              onClick={() => setActiveTab('documents')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'documents'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              <FileText className="inline-block w-4 h-4 mr-2" />
-              Documentos
-            </button>
-          )}
-          {permissions.hasPermission('hr.attendance.read') && (
-            <button
-              onClick={() => setActiveTab('attendance')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'attendance'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              <Clock className="inline-block w-4 h-4 mr-2" />
-              Ponto Interno
-            </button>
-          )}
+      {/* Navigation */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <nav className="flex overflow-x-auto">
+          {visibleNavItems.map((item) => {
+            const Icon = item.icon
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveSection(item.id as AdminSection)}
+                className={`flex items-center px-6 py-4 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+                  activeSection === item.id
+                    ? 'border-blue-500 text-blue-600 bg-blue-50'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <Icon className="w-5 h-5 mr-2" />
+                {item.label}
+              </button>
+            )
+          })}
         </nav>
       </div>
 
-      {/* Documentos */}
-      {activeTab === 'documents' && permissions.hasPermission('admin.docs.read') && (
-        <div className="space-y-6">
-          <div className="flex justify-between items-center">
+      {/* Content */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        {/* Loading State */}
+        {sectionLoading[activeSection] && (
+          <div className="p-6 flex items-center justify-center">
+            <div className="flex items-center space-x-3">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+              <span className="text-gray-600">Carregando {visibleNavItems.find(item => item.id === activeSection)?.label}...</span>
+            </div>
+          </div>
+        )}
+
+        {/* Overview Section */}
+        {activeSection === 'overview' && !sectionLoading.overview && (
+          <div className="p-6 space-y-6">
+            <h2 className="text-xl font-semibold text-gray-900">Visão Geral do Sistema</h2>
+            
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-6 text-white">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-blue-100">Funcionários</p>
+                    <p className="text-3xl font-bold">{teamMembers.length}</p>
+                    <p className="text-xs text-blue-200">
+                      {teamMembers.filter(emp => emp.status === 'active').length} ativos
+                    </p>
+                  </div>
+                  <Users className="h-8 w-8 text-blue-200" />
+                </div>
+              </div>
+              
+              <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg p-6 text-white">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-green-100">Departamentos</p>
+                    <p className="text-3xl font-bold">{internalDepartments.length}</p>
+                    <p className="text-xs text-green-200">
+                      {internalDepartments.filter(dept => dept.status === 'active').length} ativos
+                    </p>
+                  </div>
+                  <Building className="h-8 w-8 text-green-200" />
+                </div>
+              </div>
+              
+              <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg p-6 text-white">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-purple-100">Documentos</p>
+                    <p className="text-3xl font-bold">{documents.length}</p>
+                  </div>
+                  <FileText className="h-8 w-8 text-purple-200" />
+                </div>
+              </div>
+              
+              <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg p-6 text-white">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-orange-100">Registros de Ponto</p>
+                    <p className="text-3xl font-bold">{timeEntries.length}</p>
+                  </div>
+                  <Clock className="h-8 w-8 text-orange-200" />
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Actions */}
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Ações Rápidas</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {permissions.hasPermission('rbac.user.manage') && (
+                  <button
+                    onClick={() => {
+                      setSelectedEmployee(undefined)
+                      setActiveSection('employee-form')
+                    }}
+                    className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    <UserPlus className="h-6 w-6 text-blue-600 mr-3" />
+                    <div className="text-left">
+                      <p className="font-medium text-gray-900">Adicionar Funcionário</p>
+                      <p className="text-sm text-gray-500">Novo membro da equipe</p>
+                    </div>
+                  </button>
+                )}
+                
+                {permissions.hasPermission('rbac.user.manage') && (
+                  <button
+                    onClick={() => {
+                      setSelectedDepartment(undefined)
+                      setActiveSection('department-form')
+                    }}
+                    className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    <Building className="h-6 w-6 text-green-600 mr-3" />
+                    <div className="text-left">
+                      <p className="font-medium text-gray-900">Adicionar Departamento</p>
+                      <p className="text-sm text-gray-500">Novo departamento</p>
+                    </div>
+                  </button>
+                )}
+                
+                <button
+                  onClick={() => setActiveSection('employees')}
+                  className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <Users className="h-6 w-6 text-purple-600 mr-3" />
+                  <div className="text-left">
+                    <p className="font-medium text-gray-900">Gerenciar Funcionários</p>
+                    <p className="text-sm text-gray-500">Visualizar equipe interna</p>
+                  </div>
+                </button>
+                
+                <button
+                  onClick={() => setActiveSection('departments')}
+                  className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <Building2 className="h-6 w-6 text-orange-600 mr-3" />
+                  <div className="text-left">
+                    <p className="font-medium text-gray-900">Gerenciar Departamentos</p>
+                    <p className="text-sm text-gray-500">Estrutura organizacional</p>
+                  </div>
+                </button>
+                
+                <button
+                  onClick={() => setActiveSection('reports')}
+                  className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <BarChart3 className="h-6 w-6 text-indigo-600 mr-3" />
+                  <div className="text-left">
+                    <p className="font-medium text-gray-900">Gerar Relatório</p>
+                    <p className="text-sm text-gray-500">Visualizar dados do sistema</p>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* Recent Activity */}
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Atividade Recente</h3>
+              <div className="space-y-3">
+                {auditLogs.slice(0, 5).map((log) => (
+                  <div key={log.id} className="flex items-center p-3 bg-gray-50 rounded-lg">
+                    <Activity className="h-5 w-5 text-gray-400 mr-3" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-900">
+                        {log.userName} - {log.action}
+                      </p>
+                      <p className="text-xs text-gray-500">{log.details}</p>
+                    </div>
+                    <span className="text-xs text-gray-400">
+                      {new Date(log.timestamp).toLocaleString('pt-BR')}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Users Section */}
+        {activeSection === 'users' && permissions.hasPermission('rbac.user.manage') && !sectionLoading.users && (
+          <div className="p-6 space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-semibold text-gray-900">Gestão de Usuários</h2>
+              {permissions.hasPermission('rbac.user.manage') && (
+                <button
+                  onClick={handleCreateUser}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+                >
+                  <UserPlus size={20} />
+                  <span>Novo Usuário</span>
+                </button>
+              )}
+            </div>
+
+            {/* Search and Filters */}
+            <div className="flex items-center space-x-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                <input
+                  type="text"
+                  placeholder="Buscar usuários..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            {/* Users Table */}
+            <div className="overflow-hidden">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Usuário
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Cargo/Departamento
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Último Login
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Ações
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredUsers.map((user) => (
+                    <tr key={user.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                            <User className="h-5 w-5 text-blue-600" />
+                          </div>
+                          <div className="ml-4">
+                            <div className="text-sm font-medium text-gray-900">{user.name}</div>
+                            <div className="text-sm text-gray-500">{user.email}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{user.role}</div>
+                        <div className="text-sm text-gray-500">{user.department}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          user.status === 'active' 
+                            ? 'bg-green-100 text-green-800'
+                            : user.status === 'pending'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {user.status === 'active' ? 'Ativo' : user.status === 'pending' ? 'Pendente' : 'Inativo'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {user.lastLogin}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div className="flex items-center justify-end space-x-2">
+                          <button
+                            onClick={() => handleEditUser(user)}
+                            className="text-blue-600 hover:text-blue-900"
+                          >
+                            <Edit size={16} />
+                          </button>
+                          {permissions.hasPermission('rbac.user.manage') && (
+                            <button
+                              onClick={() => handleDeleteUser(user.id)}
+                              className="text-red-600 hover:text-red-900"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Documents Section */}
+        {activeSection === 'documents' && permissions.hasPermission('admin.docs.read') && !sectionLoading.documents && (
+          <div className="p-6 space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-semibold text-gray-900">Gestão de Documentos</h2>
+              {permissions.hasPermission('admin.docs.upload') && (
+                <button
+                  onClick={handleUploadDocument}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+                >
+                  <Upload size={20} />
+                  <span>Upload Documento</span>
+                </button>
+              )}
+            </div>
+
             <div className="flex items-center space-x-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
@@ -221,163 +979,657 @@ export const Administrative: React.FC = () => {
                 ))}
               </select>
             </div>
-            {permissions.hasPermission('admin.docs.upload') && (
-              <button
-                onClick={handleUploadDocument}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
-              >
-                <Upload size={20} />
-                <span>Upload Documento</span>
-              </button>
-            )}
-          </div>
 
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Documento
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Categoria
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Tamanho
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Enviado por
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Data
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Ações
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredDocuments.map((doc) => (
-                  <tr key={doc.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <FileText className="h-5 w-5 text-gray-400 mr-3" />
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">{doc.name}</div>
-                          <div className="text-sm text-gray-500">{doc.type}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                        {categoryLabels[doc.category]}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {doc.size}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {doc.uploadedBy}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {new Date(doc.uploadedAt).toLocaleDateString('pt-BR')}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex items-center justify-end space-x-2">
-                        <button
-                          onClick={() => handleDownloadDocument(doc)}
-                          className="text-blue-600 hover:text-blue-900"
-                        >
-                          <Download size={16} />
-                        </button>
-                        {permissions.hasPermission('admin.docs.delete') && (
-                          <button
-                            onClick={() => handleDeleteDocument(doc.id)}
-                            className="text-red-600 hover:text-red-900"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        )}
-                      </div>
-                    </td>
+            <div className="overflow-hidden">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Documento
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Categoria
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Tamanho
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Enviado por
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Data
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Ações
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredDocuments.map((doc) => (
+                    <tr key={doc.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <FileText className="h-5 w-5 text-gray-400 mr-3" />
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">{doc.name}</div>
+                            <div className="text-sm text-gray-500">{doc.type}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          {categoryLabels[doc.category]}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {doc.size}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {doc.uploadedBy}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {new Date(doc.uploadedAt).toLocaleDateString('pt-BR')}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div className="flex items-center justify-end space-x-2">
+                          <button
+                            onClick={() => handleDownloadDocument(doc)}
+                            className="text-blue-600 hover:text-blue-900"
+                          >
+                            <Download size={16} />
+                          </button>
+                          {permissions.hasPermission('admin.docs.delete') && (
+                            <button
+                              onClick={() => handleDeleteDocument(doc.id)}
+                              className="text-red-600 hover:text-red-900"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Ponto Interno */}
-      {activeTab === 'attendance' && permissions.hasPermission('hr.attendance.read') && (
-        <div className="space-y-6">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center space-x-4">
+        {/* Attendance Section */}
+        {activeSection === 'attendance' && permissions.hasPermission('hr.attendance.read') && !sectionLoading.attendance && (
+          <div className="p-6 space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-semibold text-gray-900">Controle de Ponto Interno</h2>
               <input
                 type="date"
                 className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 defaultValue="2024-01-22"
               />
             </div>
-          </div>
 
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Membro do Time Interno
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Entrada
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Saída
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Intervalo
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Total
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {timeEntries.map((entry) => (
-                  <tr key={entry.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
+            <div className="overflow-hidden">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Membro do Time Interno
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Entrada
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Saída
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Intervalo
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Total
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {timeEntries.map((entry) => (
+                    <tr key={entry.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <User className="h-5 w-5 text-gray-400 mr-3" />
+                          <div className="text-sm font-medium text-gray-900">{entry.employeeName}</div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {entry.clockIn}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {entry.clockOut || '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {entry.breakTime}min
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {entry.totalHours}h
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[entry.status]}`}>
+                          {statusLabels[entry.status]}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Settings Section */}
+        {activeSection === 'settings' && permissions.hasPermission('rbac.role.manage') && !sectionLoading.settings && (
+          <div className="p-6 space-y-6">
+            <h2 className="text-xl font-semibold text-gray-900">Configurações do Sistema</h2>
+            
+            <div className="space-y-6">
+              {Object.entries(
+                settings.reduce((acc, setting) => {
+                  if (!acc[setting.category]) acc[setting.category] = []
+                  acc[setting.category].push(setting)
+                  return acc
+                }, {} as Record<string, SystemSetting[]>)
+              ).map(([category, categorySettings]) => (
+                <div key={category} className="bg-gray-50 rounded-lg p-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">{category}</h3>
+                  <div className="space-y-4">
+                    {categorySettings.map((setting) => (
+                      <div key={setting.id} className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <label className="text-sm font-medium text-gray-900">
+                            {setting.name}
+                          </label>
+                          <p className="text-sm text-gray-500">{setting.description}</p>
+                        </div>
+                        <div className="ml-4">
+                          {setting.type === 'boolean' ? (
+                            <input
+                              type="checkbox"
+                              checked={setting.value === 'true'}
+                              onChange={(e) => handleUpdateSetting(setting, e.target.checked.toString())}
+                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                            />
+                          ) : setting.type === 'select' ? (
+                            <select
+                              value={setting.value}
+                              onChange={(e) => handleUpdateSetting(setting, e.target.value)}
+                              className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            >
+                              {setting.options?.map((option) => (
+                                <option key={option} value={option}>{option}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <input
+                              type={setting.type === 'number' ? 'number' : 'text'}
+                              value={setting.value}
+                              onChange={(e) => handleUpdateSetting(setting, e.target.value)}
+                              className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            />
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Reports Section */}
+        {activeSection === 'reports' && permissions.hasPermission('finance.dre.view') && !sectionLoading.reports && (
+          <div className="p-6 space-y-6">
+            <h2 className="text-xl font-semibold text-gray-900">Relatórios Administrativos</h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+                <div className="flex items-center mb-4">
+                  <Users className="h-8 w-8 text-blue-600 mr-3" />
+                  <h3 className="text-lg font-medium text-gray-900">Relatório de Usuários</h3>
+                </div>
+                <p className="text-gray-600 mb-4">Estatísticas completas sobre usuários do sistema</p>
+                <button className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700">
+                  Gerar Relatório
+                </button>
+              </div>
+
+              <div className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+                <div className="flex items-center mb-4">
+                  <Clock className="h-8 w-8 text-green-600 mr-3" />
+                  <h3 className="text-lg font-medium text-gray-900">Relatório de Ponto</h3>
+                </div>
+                <p className="text-gray-600 mb-4">Análise de frequência e horas trabalhadas</p>
+                <button className="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700">
+                  Gerar Relatório
+                </button>
+              </div>
+
+              <div className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+                <div className="flex items-center mb-4">
+                  <FileText className="h-8 w-8 text-purple-600 mr-3" />
+                  <h3 className="text-lg font-medium text-gray-900">Relatório de Documentos</h3>
+                </div>
+                <p className="text-gray-600 mb-4">Estatísticas de documentos por categoria</p>
+                <button className="w-full bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700">
+                  Gerar Relatório
+                </button>
+              </div>
+
+              <div className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+                <div className="flex items-center mb-4">
+                  <Activity className="h-8 w-8 text-orange-600 mr-3" />
+                  <h3 className="text-lg font-medium text-gray-900">Relatório de Atividades</h3>
+                </div>
+                <p className="text-gray-600 mb-4">Log de atividades e uso do sistema</p>
+                <button className="w-full bg-orange-600 text-white py-2 px-4 rounded-lg hover:bg-orange-700">
+                  Gerar Relatório
+                </button>
+              </div>
+
+              <div className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+                <div className="flex items-center mb-4">
+                  <TrendingUp className="h-8 w-8 text-red-600 mr-3" />
+                  <h3 className="text-lg font-medium text-gray-900">Relatório de Performance</h3>
+                </div>
+                <p className="text-gray-600 mb-4">Métricas de performance do sistema</p>
+                <button className="w-full bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700">
+                  Gerar Relatório
+                </button>
+              </div>
+
+              <div className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+                <div className="flex items-center mb-4">
+                  <Shield className="h-8 w-8 text-indigo-600 mr-3" />
+                  <h3 className="text-lg font-medium text-gray-900">Relatório de Segurança</h3>
+                </div>
+                <p className="text-gray-600 mb-4">Análise de segurança e acessos</p>
+                <button className="w-full bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700">
+                  Gerar Relatório
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Audit Section */}
+        {activeSection === 'audit' && permissions.hasPermission('audit.read') && !sectionLoading.audit && (
+          <div className="p-6 space-y-6">
+            <div className="text-center py-12">
+              <Shield className="mx-auto h-16 w-16 text-blue-600 mb-4" />
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Sistema de Auditoria Completo</h2>
+              <p className="text-gray-600 mb-6 max-w-2xl mx-auto">
+                Acesse o sistema completo de auditoria e logs para visualizar todas as ações realizadas no sistema, 
+                com filtros avançados, estatísticas detalhadas e exportação de dados.
+              </p>
+              
+              {/* Preview dos últimos logs */}
+              <div className="bg-gray-50 rounded-lg p-6 mb-6 max-w-4xl mx-auto">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Últimas Atividades</h3>
+                <div className="space-y-3">
+                  {auditLogs.slice(0, 3).map((log) => (
+                    <div key={log.id} className="flex items-center justify-between bg-white p-3 rounded-lg">
                       <div className="flex items-center">
                         <User className="h-5 w-5 text-gray-400 mr-3" />
-                        <div className="text-sm font-medium text-gray-900">{entry.employeeName}</div>
+                        <div>
+                          <span className="text-sm font-medium text-gray-900">{log.userName}</span>
+                          <span className="text-sm text-gray-500 ml-2">{log.action}</span>
+                        </div>
                       </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {entry.clockIn}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {entry.clockOut || '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {entry.breakTime}min
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {entry.totalHours}h
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[entry.status]}`}>
-                        {statusLabels[entry.status]}
+                      <span className="text-xs text-gray-500">
+                        {new Date(log.timestamp).toLocaleString('pt-BR')}
                       </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <button
+                onClick={() => window.open('/audit', '_blank')}
+                className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+              >
+                <Shield className="h-5 w-5 mr-2" />
+                Abrir Sistema de Auditoria Completo
+              </button>
+              
+              <p className="text-sm text-gray-500 mt-3">
+                Abrirá em uma nova aba com todas as funcionalidades de auditoria
+              </p>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {/* Employees Section */}
+        {activeSection === 'employees' && permissions.hasPermission('hr.employee.manage' as PermissionSlug) && !sectionLoading.employees && (
+          <div className="p-6 space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-semibold text-gray-900">Gerenciamento de Funcionários</h2>
+              <Button
+                onClick={() => setActiveSection('employee-form')}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <UserPlus className="h-4 w-4 mr-2" />
+                Adicionar Funcionário
+              </Button>
+            </div>
+
+            <div className="flex items-center space-x-4 mb-6">
+              <div className="flex-1 relative">
+                <Search className="h-5 w-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar funcionários..."
+                  value={employeeSearchTerm}
+                  onChange={(e) => setEmployeeSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {employees
+                .filter(employee => 
+                  employee.name.toLowerCase().includes(employeeSearchTerm.toLowerCase()) ||
+                  employee.email.toLowerCase().includes(employeeSearchTerm.toLowerCase()) ||
+                  employee.department.toLowerCase().includes(employeeSearchTerm.toLowerCase())
+                )
+                .map((employee) => (
+                  <Card key={employee.id} className="p-6">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="bg-blue-100 p-2 rounded-full">
+                          <User className="h-6 w-6 text-blue-600" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-medium text-gray-900">{employee.name}</h3>
+                          <p className="text-sm text-gray-500">{employee.position}</p>
+                        </div>
+                      </div>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        employee.status === 'active' 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {employee.status === 'active' ? 'Ativo' : 'Inativo'}
+                      </span>
+                    </div>
+                    
+                    <div className="mt-4 space-y-2">
+                      <div className="flex items-center text-sm text-gray-600">
+                        <Mail className="h-4 w-4 mr-2" />
+                        {employee.email}
+                      </div>
+                      <div className="flex items-center text-sm text-gray-600">
+                        <Phone className="h-4 w-4 mr-2" />
+                        {employee.phone}
+                      </div>
+                      <div className="flex items-center text-sm text-gray-600">
+                        <Building className="h-4 w-4 mr-2" />
+                        {employee.department}
+                      </div>
+                      <div className="flex items-center text-sm text-gray-600">
+                        <DollarSign className="h-4 w-4 mr-2" />
+                        R$ {employee.salary.toLocaleString('pt-BR')}
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex space-x-2">
+                      <Button
+                        onClick={() => handleEditEmployee(employee)}
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                      >
+                        <Edit className="h-4 w-4 mr-1" />
+                        Editar
+                      </Button>
+                      <Button
+                        onClick={() => handleDeleteEmployee(employee.id)}
+                        variant="outline"
+                        size="sm"
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </Card>
+                ))}
+            </div>
+          </div>
+        )}
+
+        {/* Departments Section */}
+        {activeSection === 'departments' && permissions.hasPermission('hr.department.manage' as PermissionSlug) && !sectionLoading.departments && (
+          <div className="p-6 space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-semibold text-gray-900">Gerenciamento de Departamentos</h2>
+              <Button
+                onClick={() => setActiveSection('department-form')}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <Building2 className="h-4 w-4 mr-2" />
+                Adicionar Departamento
+              </Button>
+            </div>
+
+            <div className="flex items-center space-x-4 mb-6">
+              <div className="flex-1 relative">
+                <Search className="h-5 w-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar departamentos..."
+                  value={departmentSearchTerm}
+                  onChange={(e) => setDepartmentSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {departments
+                .filter(department => 
+                  department.name.toLowerCase().includes(departmentSearchTerm.toLowerCase()) ||
+                  department.code.toLowerCase().includes(departmentSearchTerm.toLowerCase()) ||
+                  department.location.toLowerCase().includes(departmentSearchTerm.toLowerCase())
+                )
+                .map((department) => (
+                  <Card key={department.id} className="p-6">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="bg-green-100 p-2 rounded-full">
+                          <Building2 className="h-6 w-6 text-green-600" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-medium text-gray-900">{department.name}</h3>
+                          <p className="text-sm text-gray-500">{department.code}</p>
+                        </div>
+                      </div>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        department.status === 'active' 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {department.status === 'active' ? 'Ativo' : 'Inativo'}
+                      </span>
+                    </div>
+                    
+                    <div className="mt-4 space-y-2">
+                      <div className="flex items-center text-sm text-gray-600">
+                        <MapPin className="h-4 w-4 mr-2" />
+                        {department.location}
+                      </div>
+                      <div className="flex items-center text-sm text-gray-600">
+                        <Phone className="h-4 w-4 mr-2" />
+                        {department.phone}
+                      </div>
+                      <div className="flex items-center text-sm text-gray-600">
+                        <Mail className="h-4 w-4 mr-2" />
+                        {department.email}
+                      </div>
+                      <div className="flex items-center text-sm text-gray-600">
+                        <Users className="h-4 w-4 mr-2" />
+                        {department.employees.length} funcionários
+                      </div>
+                      <div className="flex items-center text-sm text-gray-600">
+                        <DollarSign className="h-4 w-4 mr-2" />
+                        Orçamento: R$ {department.budget.toLocaleString('pt-BR')}
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex space-x-2">
+                      <Button
+                        onClick={() => handleEditDepartment(department)}
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                      >
+                        <Edit className="h-4 w-4 mr-1" />
+                        Editar
+                      </Button>
+                      <Button
+                        onClick={() => handleDeleteDepartment(department.id)}
+                        variant="outline"
+                        size="sm"
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </Card>
+                ))}
+            </div>
+          </div>
+        )}
+
+        {/* Employee Form Section */}
+        {activeSection === 'employee-form' && permissions.hasPermission('hr.employee.manage' as PermissionSlug) && !sectionLoading['employee-form'] && (
+          <div className="p-6">
+            <div className="flex items-center mb-6">
+              <Button
+                onClick={() => setActiveSection('employees')}
+                variant="outline"
+                className="mr-4"
+              >
+                ← Voltar
+              </Button>
+              <h2 className="text-xl font-semibold text-gray-900">
+                {selectedEmployee ? 'Editar Funcionário' : 'Adicionar Funcionário'}
+              </h2>
+            </div>
+            
+            <Card className="p-6">
+              <form className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Nome Completo
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Digite o nome completo"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Email
+                    </label>
+                    <input
+                      type="email"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Digite o email"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Telefone
+                    </label>
+                    <input
+                      type="tel"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Digite o telefone"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Cargo
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Digite o cargo"
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex justify-end space-x-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setActiveSection('employees')}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="submit"
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    {selectedEmployee ? 'Atualizar' : 'Criar'} Funcionário
+                  </Button>
+                </div>
+              </form>
+            </Card>
+          </div>
+        )}
+
+        {/* Department Form Section */}
+        {activeSection === 'department-form' && permissions.hasPermission('hr.department.manage' as PermissionSlug) && !sectionLoading['department-form'] && (
+          <div className="p-6">
+            <div className="flex items-center mb-6">
+              <Button
+                onClick={() => setActiveSection('departments')}
+                variant="outline"
+                className="mr-4"
+              >
+                ← Voltar
+              </Button>
+              <h2 className="text-xl font-semibold text-gray-900">
+                {selectedDepartment ? 'Editar Departamento' : 'Adicionar Departamento'}
+              </h2>
+            </div>
+            
+            <DepartmentForm
+              selectedDepartment={selectedDepartment}
+              onSave={handleSaveDepartment}
+              onCancel={() => setActiveSection('departments')}
+            />
+          </div>
+        )}
+
+        {/* Time Validation Section */}
+        {activeSection === 'time-validation' && permissions.hasPermission('attendance.validate' as PermissionSlug) && !sectionLoading['time-validation'] && (
+          <div className="p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-6">Validação de Ponto</h2>
+            <Suspense fallback={
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <span className="ml-3 text-gray-600">Carregando dashboard de validação...</span>
+              </div>
+            }>
+              <TimeValidationDashboard />
+            </Suspense>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

@@ -278,20 +278,7 @@ export const menuConfig: MenuStructure = [
       }
     ]
   },
-  {
-    id: 'administration',
-    title: 'Administração',
-    permission: 'admin.access',
-    items: [
-      {
-        id: 'admin-dashboard',
-        label: 'Painel Administrativo',
-        icon: 'Settings',
-        path: '/admin',
-        permission: 'admin.dashboard.view'
-      }
-    ]
-  },
+
   {
     id: 'audit',
     title: 'Auditoria',

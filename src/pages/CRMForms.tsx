@@ -15,6 +15,7 @@ import {
   Trash2,
   UserPlus
 } from 'lucide-react'
+import Breadcrumb from '../components/UI/Breadcrumb'
 
 import ClientePJForm from '../components/CRM/ClientePJForm'
 import IRPFForm from '../components/CRM/IRPFForm'
@@ -226,57 +227,106 @@ const CRMForms: React.FC = () => {
 
 
 
+  // Renderização condicional dos formulários com navegação
   if (showClientePJForm) {
     return (
-      <ClientePJForm
-        onSubmit={handleClientePJSubmit}
-        onCancel={handleClientePJCancel}
-      />
+      <div className="space-y-4">
+        <Breadcrumb 
+          items={[
+            { label: 'Formulários CRM', onClick: handleClientePJCancel },
+            { label: 'Captação Cliente PJ' }
+          ]}
+        />
+        <ClientePJForm
+          onSubmit={handleClientePJSubmit}
+          onCancel={handleClientePJCancel}
+        />
+      </div>
     )
   }
 
   if (showIRPFForm) {
     return (
-      <IRPFForm
-        onSubmit={handleIRPFSubmit}
-        onCancel={handleIRPFCancel}
-      />
+      <div className="space-y-4">
+        <Breadcrumb 
+          items={[
+            { label: 'Formulários CRM', onClick: handleIRPFCancel },
+            { label: 'Declaração IRPF' }
+          ]}
+        />
+        <IRPFForm
+          onSubmit={handleIRPFSubmit}
+          onCancel={handleIRPFCancel}
+        />
+      </div>
     )
   }
 
   if (showContratoForm) {
     return (
-      <ContratoForm
-        onSubmit={handleContratoSubmit}
-        onCancel={handleContratoCancel}
-      />
+      <div className="space-y-4">
+        <Breadcrumb 
+          items={[
+            { label: 'Formulários CRM', onClick: handleContratoCancel },
+            { label: 'Gestão de Contratos' }
+          ]}
+        />
+        <ContratoForm
+          onSubmit={handleContratoSubmit}
+          onCancel={handleContratoCancel}
+        />
+      </div>
     )
   }
 
   if (showTimeInternoForm) {
     return (
-      <TimeInternoForm 
-        onSubmit={handleTimeInternoSubmit}
-        onCancel={handleTimeInternoCancel}
-      />
+      <div className="space-y-4">
+        <Breadcrumb 
+          items={[
+            { label: 'Formulários CRM', onClick: handleTimeInternoCancel },
+            { label: 'Time Interno' }
+          ]}
+        />
+        <TimeInternoForm 
+          onSubmit={handleTimeInternoSubmit}
+          onCancel={handleTimeInternoCancel}
+        />
+      </div>
     )
   }
 
   if (showServicoEspecialForm) {
     return (
-      <ServicoEspecialForm 
-        onSubmit={handleServicoEspecialSubmit}
-        onCancel={handleServicoEspecialCancel}
-      />
+      <div className="space-y-4">
+        <Breadcrumb 
+          items={[
+            { label: 'Formulários CRM', onClick: handleServicoEspecialCancel },
+            { label: 'Serviços Especiais' }
+          ]}
+        />
+        <ServicoEspecialForm 
+          onSubmit={handleServicoEspecialSubmit}
+          onCancel={handleServicoEspecialCancel}
+        />
+      </div>
     )
   }
 
   if (showPipelineForm) {
     return (
-      <PipelineForm 
-        onSubmit={handlePipelineSubmit}
-        onCancel={handlePipelineCancel}
-      />
+      <div className="space-y-4">
+        <Breadcrumb 
+          items={[
+            { label: 'Formulários CRM', onClick: handlePipelineCancel },
+            { label: 'Pipeline de Captação' }
+          ]}
+        />
+        <PipelineForm 
+          onSubmit={handlePipelineSubmit}
+          onCancel={handlePipelineCancel}
+        />
+      </div>
     )
   }
 
@@ -299,7 +349,7 @@ const CRMForms: React.FC = () => {
       </div>
 
       {/* Filtros */}
-      <div className="flex flex-col sm:flex-row gap-4">
+      <div className="flex flex-col lg:flex-row gap-4">
         {/* Busca */}
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
@@ -313,12 +363,12 @@ const CRMForms: React.FC = () => {
         </div>
 
         {/* Filtro por categoria */}
-        <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-gray-500" />
+        <div className="flex items-center gap-2 w-full lg:w-auto">
+          <Filter className="h-4 w-4 text-gray-500 flex-shrink-0" />
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-medstaff-primary focus:border-transparent"
+            className="flex-1 lg:flex-none px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-medstaff-primary focus:border-transparent min-w-0"
           >
             {categories.map(category => (
               <option key={category} value={category}>

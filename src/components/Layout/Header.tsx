@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
-import { Bell, Menu, User, LogOut, Settings } from 'lucide-react'
+import { Bell, Menu, User, LogOut, Settings, MessageSquare, Play, Square } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { useAuthStore } from '../../stores/authStore'
 import { usePermissions } from '../../hooks/usePermissions'
 import NotificationDropdown from '../Notifications/NotificationDropdown'
@@ -15,37 +16,99 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, isSidebarOpen }) => {
   const { user, logout } = useAuthStore()
   const [showUserMenu, setShowUserMenu] = useState(false)
+  const [showChatNotifications, setShowChatNotifications] = useState(false)
+  const [showDirectorNotifications, setShowDirectorNotifications] = useState(false)
+  const [showNotifications, setShowNotifications] = useState(false)
 
   const handleLogout = () => {
     logout()
   }
 
   return (
-    <header className="bg-white border-b border-gray-200 shadow-sm">
-      <div className="flex items-center justify-between px-4 py-3">
-        {/* Menu Toggle */}
-        <div className="flex items-center">
+    <header className="bg-white border-b border-gray-200 px-4 lg:px-6 py-4 sticky top-0 z-40">
+      <div className="flex items-center justify-between">
+        {/* Menu toggle for mobile */}
+        <div className="flex items-center space-x-4">
           <button
             onClick={onToggleSidebar}
-            className="lg:hidden p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+            className="lg:hidden p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+            aria-label="Abrir menu"
           >
             <Menu className="h-6 w-6" />
           </button>
+          
+          {/* Logo for mobile */}
+          <div className="lg:hidden flex items-center space-x-2">
+            <img 
+              src="/medstaff-logo.svg" 
+              alt="MedStaff" 
+              className="h-8 w-auto"
+            />
+            <span className="text-medstaff-primary font-semibold text-lg">MedStaff</span>
+          </div>
         </div>
 
         {/* Right side - Notifications and user menu */}
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-2 lg:space-x-3">
           {/* Director Notifications */}
-          <DirectorNotificationDropdown />
+          <div className="hidden sm:block">
+            <DirectorNotificationDropdown />
+          </div>
           
           {/* Chat Notifications */}
-          <ChatNotificationButton />
+          <div className="relative hidden sm:block">
+            <button
+              onClick={() => setShowChatNotifications(!showChatNotifications)}
+              className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md relative transition-colors"
+              aria-label="Notificações de chat"
+            >
+              <MessageSquare className="h-5 w-5 lg:h-6 lg:w-6" />
+              <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs rounded-full h-4 w-4 lg:h-5 lg:w-5 flex items-center justify-center">
+                7
+              </span>
+            </button>
+          </div>
           
           {/* Regular Notifications */}
-          <NotificationDropdown />
+          <div className="relative">
+            <button
+              onClick={() => setShowNotifications(!showNotifications)}
+              className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md relative transition-colors"
+              aria-label="Notificações"
+            >
+              <Bell className="h-5 w-5 lg:h-6 lg:w-6" />
+              <span className="absolute -top-1 -right-1 bg-green-500 text-white text-xs rounded-full h-4 w-4 lg:h-5 lg:w-5 flex items-center justify-center">
+                12
+              </span>
+            </button>
+
+            {showNotifications && (
+               <div className="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-50">
+                 <div className="p-4">
+                   <h3 className="text-sm font-medium text-gray-900 mb-2">Notificações</h3>
+                   <p className="text-sm text-gray-500">Nenhuma notificação no momento.</p>
+                 </div>
+               </div>
+             )}
+          </div>
 
           {/* Quick Time Clock Buttons */}
-          <QuickTimeClockButtons />
+          <div className="hidden md:flex items-center space-x-2">
+            <button
+              className="flex items-center space-x-1 px-3 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors text-sm"
+              aria-label="Bater ponto - Entrada"
+            >
+              <Play className="h-4 w-4" />
+              <span className="hidden lg:inline">Entrada</span>
+            </button>
+            <button
+              className="flex items-center space-x-1 px-3 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors text-sm"
+              aria-label="Bater ponto - Saída"
+            >
+              <Square className="h-4 w-4" />
+              <span className="hidden lg:inline">Saída</span>
+            </button>
+          </div>
 
           {/* User menu */}
           <div className="relative">
@@ -73,20 +136,22 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, isSidebarOpen }
             {showUserMenu && (
               <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
                 <div className="p-2">
-                  <button
+                  <Link
+                    to="/perfil"
                     onClick={() => setShowUserMenu(false)}
                     className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors duration-200"
                   >
                     <User className="w-4 h-4" />
                     <span>Meu Perfil</span>
-                  </button>
-                  <button
+                  </Link>
+                  <Link
+                    to="/configuracoes"
                     onClick={() => setShowUserMenu(false)}
                     className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors duration-200"
                   >
                     <Settings className="w-4 h-4" />
                     <span>Configurações</span>
-                  </button>
+                  </Link>
                   <hr className="my-2" />
                   <button
                     onClick={handleLogout}

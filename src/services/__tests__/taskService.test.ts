@@ -1,11 +1,63 @@
+import { vi, Mock } from 'vitest';
 import taskService from '../taskService';
 import { TaskStatus, TaskPriority, CreateTaskRequest, UpdateTaskRequest } from '../../types/task';
 
+// Mock do Supabase
+vi.mock('../../config/supabase', () => ({
+  supabase: {
+    from: vi.fn()
+  }
+}));
+
+import { supabase } from '../../config/supabase';
+
 describe('TaskService', () => {
+  let mockSupabaseFrom: Mock;
+  let mockSupabaseQuery: any;
+
   beforeEach(() => {
     // Reset tasks and comments before each test
     taskService['tasks'] = [];
     taskService['comments'] = [];
+
+    let taskIdCounter = 1;
+
+    // Configurar mock do Supabase
+    mockSupabaseQuery = {
+      insert: vi.fn().mockImplementation((data) => ({
+        select: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({
+          data: {
+            id: `test-id-${taskIdCounter++}`,
+            title: data.title,
+            description: data.description,
+            status: data.status || 'pending',
+            priority: data.priority || 'medium',
+            assigned_to: data.assigned_to,
+            created_by: data.created_by,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            due_date: data.due_date,
+            tags: data.tags || [],
+            metadata: data.metadata || {}
+          },
+          error: null
+        })
+      })),
+      select: vi.fn().mockReturnThis(),
+      single: vi.fn().mockReturnThis(),
+      update: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      delete: vi.fn().mockReturnThis(),
+      gte: vi.fn().mockReturnThis(),
+      lte: vi.fn().mockReturnThis(),
+      order: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+      then: vi.fn()
+    };
+
+    mockSupabaseFrom = vi.mocked(supabase.from);
+    mockSupabaseFrom.mockReturnValue(mockSupabaseQuery);
   });
 
   describe('getTasks', () => {
@@ -217,7 +269,7 @@ describe('TaskService', () => {
     it('should update a comment', async () => {
       const comment = await taskService.addComment(taskId, 'Original comment', 'user1', 'User One');
       
-      const updatedComment = await taskService.updateComment(comment.id, 'Updated comment');
+      const updatedComment = await taskService.updateComment(taskId, comment.id, 'Updated comment');
 
       expect(updatedComment).not.toBeNull();
       expect(updatedComment!.content).toBe('Updated comment');
@@ -230,7 +282,7 @@ describe('TaskService', () => {
     it('should delete a comment', async () => {
       const comment = await taskService.addComment(taskId, 'Comment to delete', 'user1', 'User One');
       
-      const result = await taskService.deleteComment(comment.id);
+      const result = await taskService.deleteComment(taskId, comment.id);
       expect(result).toBe(true);
 
       const task = await taskService.getTaskById(taskId);

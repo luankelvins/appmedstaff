@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Header } from './Header'
 import { Sidebar } from './Sidebar'
+import MobileNavigation from './MobileNavigation'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -20,10 +21,16 @@ export const Layout = ({ children }: LayoutProps) => {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="flex h-screen">
-        {/* Sidebar */}
+        {/* Desktop Sidebar */}
         <Sidebar 
           isOpen={isSidebarOpen} 
           onClose={closeSidebar} 
+        />
+        
+        {/* Mobile Navigation */}
+        <MobileNavigation 
+          isOpen={isSidebarOpen}
+          onClose={closeSidebar}
         />
         
         {/* Main content area */}

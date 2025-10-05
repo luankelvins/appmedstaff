@@ -9,8 +9,28 @@ import TaskFilters from './TaskFilters';
 import taskService from '../../services/taskService';
 import { Plus, RefreshCw, AlertCircle, Calendar as CalendarIcon, List, Grid } from 'lucide-react';
 
-// Configure moment locale
-moment.locale('pt-br');
+// Configure moment locale with explicit settings
+moment.locale('pt-br', {
+  months: [
+    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+  ],
+  monthsShort: [
+    'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
+    'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'
+  ],
+  weekdays: [
+    'Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira',
+    'Quinta-feira', 'Sexta-feira', 'Sábado'
+  ],
+  weekdaysShort: ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'],
+  weekdaysMin: ['Do', 'Se', 'Te', 'Qu', 'Qu', 'Se', 'Sá'],
+  week: {
+    dow: 0, // Sunday is the first day of the week
+    doy: 1  // The week that contains Jan 1st is the first week of the year
+  }
+});
+
 const localizer = momentLocalizer(moment);
 
 interface TaskCalendarViewProps {
@@ -345,17 +365,29 @@ const TaskCalendarView: React.FC<TaskCalendarViewProps> = ({ onTaskClick, onComm
               agenda: 'Agenda',
               date: 'Data',
               time: 'Hora',
-              event: 'Evento',
-              noEventsInRange: 'Não há tasks neste período',
-              showMore: (total) => `+ ${total} mais`
+              event: 'Tarefa',
+              allDay: 'Dia inteiro',
+              noEventsInRange: 'Não há tarefas neste período',
+              showMore: (total) => `+ ${total} mais`,
+              work_week: 'Semana de trabalho',
+              yesterday: 'Ontem',
+              tomorrow: 'Amanhã'
             }}
             formats={{
-              monthHeaderFormat: 'MMMM YYYY',
-              dayHeaderFormat: 'dddd, DD/MM',
+              monthHeaderFormat: 'MMMM [de] YYYY',
+              dayHeaderFormat: 'dddd, DD [de] MMMM',
               dayRangeHeaderFormat: ({ start, end }) =>
-                `${moment(start).format('DD/MM')} - ${moment(end).format('DD/MM/YYYY')}`,
+                `${moment(start).format('DD [de] MMMM')} - ${moment(end).format('DD [de] MMMM [de] YYYY')}`,
               timeGutterFormat: 'HH:mm',
               eventTimeRangeFormat: ({ start, end }) =>
+                `${moment(start).format('HH:mm')} - ${moment(end).format('HH:mm')}`,
+              selectRangeFormat: ({ start, end }) =>
+                `${moment(start).format('DD/MM/YYYY HH:mm')} - ${moment(end).format('DD/MM/YYYY HH:mm')}`,
+              agendaHeaderFormat: ({ start, end }) =>
+                `${moment(start).format('DD [de] MMMM')} - ${moment(end).format('DD [de] MMMM [de] YYYY')}`,
+              agendaDateFormat: 'dddd, DD [de] MMMM',
+              agendaTimeFormat: 'HH:mm',
+              agendaTimeRangeFormat: ({ start, end }) =>
                 `${moment(start).format('HH:mm')} - ${moment(end).format('HH:mm')}`
             }}
           />

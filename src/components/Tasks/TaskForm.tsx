@@ -13,11 +13,14 @@ import {
   FileText,
   Users,
   Settings,
-  Target
+  Target,
+  Home,
+  ChevronRight as BreadcrumbArrow
 } from 'lucide-react';
 import UserSelector from './UserSelector';
 import RecurrenceConfig from './RecurrenceConfig';
 import projectService from '../../services/projectService';
+import { Breadcrumb } from '../UI/Breadcrumb';
 
 interface TaskParticipant {
   id: string;
@@ -90,6 +93,33 @@ const TaskForm: React.FC<TaskFormProps> = ({
     
     if (stepValidation && currentStep < totalSteps) {
       setCurrentStep(prev => prev + 1)
+    }
+  }
+
+  // Navegação direta para um step específico
+  const goToStep = (stepNumber: number) => {
+    // Permitir navegação para steps anteriores ou atual
+    if (stepNumber <= currentStep) {
+      setCurrentStep(stepNumber);
+      return;
+    }
+    
+    // Para steps futuros, validar steps anteriores
+    const originalStep = currentStep;
+    let canNavigate = true;
+    
+    for (let i = 1; i < stepNumber; i++) {
+      setCurrentStep(i);
+      if (!validateCurrentStep()) {
+        canNavigate = false;
+        break;
+      }
+    }
+    
+    if (canNavigate) {
+      setCurrentStep(stepNumber);
+    } else {
+      setCurrentStep(originalStep); // Restaurar step original
     }
   }
 
@@ -188,6 +218,50 @@ const TaskForm: React.FC<TaskFormProps> = ({
     setErrors({});
     setCurrentStep(1); // Reset para o primeiro step
   }, [task, isOpen]);
+
+  // Navegação por teclado
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl/Cmd + Arrow keys para navegação entre steps
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
+        switch (e.key) {
+          case 'ArrowLeft':
+            e.preventDefault()
+            if (currentStep > 1) {
+              prevStep()
+            }
+            break
+          case 'ArrowRight':
+            e.preventDefault()
+            if (currentStep < totalSteps) {
+              nextStep()
+            }
+            break
+          case 'Enter':
+            // Ctrl/Cmd + Enter para submeter formulário
+            if (currentStep === totalSteps) {
+              e.preventDefault()
+              const form = document.querySelector('form')
+              if (form) {
+                form.requestSubmit()
+              }
+            }
+            break
+        }
+      }
+      
+      // Escape para fechar modal
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        onClose()
+      }
+    }
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleKeyDown)
+      return () => document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isOpen, currentStep, totalSteps, onClose])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -378,26 +452,43 @@ const TaskForm: React.FC<TaskFormProps> = ({
   // Renderizar indicador de steps
   const renderStepIndicator = () => (
     <div className="mb-8">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between relative">
         {steps.map((step, index) => {
           const StepIcon = step.icon;
           const isActive = currentStep === step.id;
           const isCompleted = currentStep > step.id;
+          const isAccessible = step.id <= currentStep || isCompleted;
           
           return (
-            <div key={step.id} className="flex flex-col items-center flex-1">
-              <div className={`
-                w-12 h-12 rounded-full flex items-center justify-center mb-2 transition-all duration-300
-                ${isActive ? 'bg-blue-600 text-white shadow-lg scale-110' : 
-                  isCompleted ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-500'}
-              `}>
+            <div key={step.id} className="flex flex-col items-center flex-1 relative">
+              <button
+                type="button"
+                onClick={() => goToStep(step.id)}
+                disabled={!isAccessible}
+                className={`
+                  w-12 h-12 rounded-full flex items-center justify-center mb-2 transition-all duration-300
+                  ${isActive ? 'bg-blue-600 text-white shadow-lg scale-110' : 
+                    isCompleted ? 'bg-green-500 text-white hover:bg-green-600' : 
+                    isAccessible ? 'bg-gray-300 text-gray-600 hover:bg-gray-400' :
+                    'bg-gray-200 text-gray-400 cursor-not-allowed'}
+                  ${isAccessible ? 'hover:scale-105 cursor-pointer' : ''}
+                  focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
+                `}
+                aria-label={`Ir para ${step.title}`}
+                tabIndex={isAccessible ? 0 : -1}
+              >
                 {isCompleted ? <CheckCircle className="w-6 h-6" /> : <StepIcon className="w-6 h-6" />}
-              </div>
+              </button>
               <div className="text-center">
-                <p className={`text-sm font-medium ${isActive ? 'text-blue-600' : 'text-gray-600'}`}>
+                <p className={`text-sm font-medium transition-colors ${
+                  isActive ? 'text-blue-600' : 
+                  isAccessible ? 'text-gray-700' : 'text-gray-400'
+                }`}>
                   {step.title}
                 </p>
-                <p className="text-xs text-gray-500 mt-1 max-w-24">
+                <p className={`text-xs mt-1 max-w-24 transition-colors ${
+                  isActive ? 'text-blue-500' : 'text-gray-500'
+                }`}>
                   {step.description}
                 </p>
               </div>
@@ -761,7 +852,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
       <div className="bg-white rounded-lg w-full max-w-4xl max-h-[98vh] sm:max-h-[95vh] flex flex-col overflow-hidden">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 sm:p-6 flex-shrink-0">
-          <div className="flex justify-between items-center">
+          <div className="flex justify-between items-center mb-4">
             <div className="flex-1 min-w-0">
               <h2 className="text-xl sm:text-2xl font-bold truncate">
                 {task ? 'Editar Tarefa' : 'Nova Tarefa'}
@@ -777,6 +868,18 @@ const TaskForm: React.FC<TaskFormProps> = ({
               <X className="w-5 h-5 sm:w-6 sm:h-6" />
             </button>
           </div>
+          
+          {/* Breadcrumb Navigation */}
+           <div className="border-t border-blue-400 pt-4">
+             <Breadcrumb
+               items={[
+                 { label: 'Tarefas', path: '/tasks' },
+                 { label: task ? 'Editar' : 'Nova Tarefa' }
+               ]}
+               showHome={false}
+               className="text-blue-100 [&_a]:text-blue-100 [&_a:hover]:text-white [&_span]:text-white [&_svg]:text-blue-300"
+             />
+           </div>
         </div>
 
         {/* Step Indicator */}
@@ -800,7 +903,8 @@ const TaskForm: React.FC<TaskFormProps> = ({
                 <button
                   type="button"
                   onClick={prevStep}
-                  className="flex items-center px-3 sm:px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors text-sm sm:text-base"
+                  title="Anterior (Ctrl/Cmd + ←)"
+                  className="flex items-center px-3 sm:px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <ChevronLeft className="w-4 h-4 mr-1" />
                   <span className="hidden sm:inline">Anterior</span>
@@ -809,9 +913,14 @@ const TaskForm: React.FC<TaskFormProps> = ({
               )}
             </div>
 
-            {/* Indicador de Etapa */}
-            <div className="text-sm text-gray-500 font-medium">
-              Etapa {currentStep} de {totalSteps}
+            {/* Indicador de Etapa com dicas de navegação */}
+            <div className="text-center">
+              <div className="text-sm text-gray-500 font-medium">
+                Etapa {currentStep} de {totalSteps}
+              </div>
+              <div className="text-xs text-gray-400 mt-1 hidden sm:block">
+                Use Ctrl/Cmd + ← → para navegar
+              </div>
             </div>
 
             {/* Botões de Ação */}
@@ -819,7 +928,8 @@ const TaskForm: React.FC<TaskFormProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-3 sm:px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors text-sm sm:text-base"
+                title="Cancelar (Esc)"
+                className="px-3 sm:px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-gray-500"
               >
                 <span className="hidden sm:inline">Cancelar</span>
                 <span className="sm:hidden">Cancel.</span>
@@ -829,7 +939,8 @@ const TaskForm: React.FC<TaskFormProps> = ({
                 <button
                   type="button"
                   onClick={nextStep}
-                  className="flex items-center px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm sm:text-base"
+                  title="Próximo (Ctrl/Cmd + →)"
+                  className="flex items-center px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <span className="hidden sm:inline">Próximo</span>
                   <span className="sm:hidden">Próx.</span>
@@ -839,7 +950,8 @@ const TaskForm: React.FC<TaskFormProps> = ({
                 <button
                    type="submit"
                    disabled={isSubmitting}
-                   className="flex items-center px-3 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm sm:text-base"
+                   title="Salvar Tarefa (Ctrl/Cmd + Enter)"
+                   className="flex items-center px-3 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-green-500"
                    onClick={handleSubmit}
                  >
                    {isSubmitting ? (
