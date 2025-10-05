@@ -275,3 +275,41 @@ export interface FinancialSettings {
     retentionDays: number;
   };
 }
+
+// Tipos para backup automático
+export interface BackupData {
+  metadata: {
+    version: string;
+    timestamp: Date;
+    userId: string;
+    dataTypes: string[];
+    totalRecords: number;
+  };
+  categories: FinancialCategory[];
+  bankAccounts: BankAccount[];
+  paymentMethods: PaymentMethod[];
+  revenues: Revenue[];
+  expenses: Expense[];
+  settings: FinancialSettings;
+}
+
+export interface BackupFile {
+  id: string;
+  filename: string;
+  size: number;
+  createdAt: Date;
+  userId: string;
+  dataTypes: string[];
+  isAutomatic: boolean;
+  downloadUrl?: string;
+}
+
+export interface BackupSettings {
+  autoBackup: boolean;
+  frequency: 'daily' | 'weekly' | 'monthly';
+  retentionDays: number;
+  lastBackupDate?: Date;
+  nextBackupDate?: Date;
+  storageLocation: 'local' | 'cloud';
+  encryptBackups: boolean;
+}

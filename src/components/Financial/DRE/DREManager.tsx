@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Calendar, 
   Download, 
@@ -13,6 +13,7 @@ import {
   CheckCircle
 } from 'lucide-react';
 import { Revenue, Expense, FinancialCategory } from '../../../types/financial';
+import { financialService } from '../../../services/financialService';
 
 interface DREData {
   period: string;
@@ -48,17 +49,15 @@ interface DREFilters {
   includeProjections: boolean;
 }
 
-interface DREManagerProps {
-  revenues?: Revenue[];
-  expenses?: Expense[];
-  categories?: FinancialCategory[];
-}
+interface DREManagerProps {}
 
-const DREManager: React.FC<DREManagerProps> = ({
-  revenues = [],
-  expenses = [],
-  categories = []
-}) => {
+const DREManager: React.FC<DREManagerProps> = () => {
+  const [revenues, setRevenues] = useState<Revenue[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [categories, setCategories] = useState<FinancialCategory[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const [filters, setFilters] = useState<DREFilters>({
     startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
     endDate: new Date().toISOString().split('T')[0],
@@ -70,90 +69,32 @@ const DREManager: React.FC<DREManagerProps> = ({
   const [showFilters, setShowFilters] = useState(false);
   const [viewMode, setViewMode] = useState<'detailed' | 'summary'>('detailed');
 
-  // Mock data para demonstração
-  const mockRevenues: Revenue[] = [
-    {
-      id: '1',
-      description: 'Serviços de consultoria',
-      amount: 45000,
-      dueDate: new Date('2024-01-15'),
-      status: 'confirmed',
-      categoryId: '1',
-      paymentMethodId: '1',
-      recurrence: { isRecurrent: false },
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      createdBy: 'admin',
-      updatedBy: 'admin'
-    },
-    {
-      id: '2',
-      description: 'Venda de produtos',
-      amount: 32000,
-      dueDate: new Date('2024-01-20'),
-      status: 'confirmed',
-      categoryId: '2',
-      paymentMethodId: '1',
-      recurrence: { isRecurrent: false },
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      createdBy: 'admin',
-      updatedBy: 'admin'
-    }
-  ];
+  // Carregar dados do financialService
+  useEffect(() => {
+    loadFinancialData();
+  }, []);
 
-  const mockExpenses: Expense[] = [
-    {
-      id: '1',
-      description: 'Salários e encargos',
-      amount: 25000,
-      dueDate: new Date('2024-01-31'),
-      status: 'confirmed',
-      categoryId: '3',
-      paymentMethodId: '1',
-      recurrence: { isRecurrent: true, period: 'monthly', interval: 1 },
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      createdBy: 'admin',
-      updatedBy: 'admin'
-    },
-    {
-      id: '2',
-      description: 'Aluguel',
-      amount: 8000,
-      dueDate: new Date('2024-01-31'),
-      status: 'confirmed',
-      categoryId: '4',
-      paymentMethodId: '1',
-      recurrence: { isRecurrent: true, period: 'monthly', interval: 1 },
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      createdBy: 'admin',
-      updatedBy: 'admin'
-    },
-    {
-      id: '3',
-      description: 'Marketing digital',
-      amount: 5000,
-      dueDate: new Date('2024-01-25'),
-      status: 'confirmed',
-      categoryId: '5',
-      paymentMethodId: '1',
-      recurrence: { isRecurrent: false },
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      createdBy: 'admin',
-      updatedBy: 'admin'
+  const loadFinancialData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const [revenuesData, expensesData, categoriesData] = await Promise.all([
+        financialService.getRevenues(),
+        financialService.getExpenses(),
+        financialService.getCategories()
+      ]);
+      
+      setRevenues(revenuesData);
+      setExpenses(expensesData);
+      setCategories(categoriesData);
+    } catch (err) {
+      setError('Erro ao carregar dados financeiros. Tente novamente.');
+      console.error('Erro ao carregar dados financeiros:', err);
+    } finally {
+      setLoading(false);
     }
-  ];
-
-  const mockCategories: FinancialCategory[] = [
-    { id: '1', name: 'Serviços', type: 'income', color: '#10B981', description: '', isActive: true, createdAt: new Date(), updatedAt: new Date(), createdBy: 'admin', updatedBy: 'admin' },
-    { id: '2', name: 'Produtos', type: 'income', color: '#3B82F6', description: '', isActive: true, createdAt: new Date(), updatedAt: new Date(), createdBy: 'admin', updatedBy: 'admin' },
-    { id: '3', name: 'Pessoal', type: 'expense', color: '#EF4444', description: '', isActive: true, createdAt: new Date(), updatedAt: new Date(), createdBy: 'admin', updatedBy: 'admin' },
-    { id: '4', name: 'Infraestrutura', type: 'expense', color: '#F59E0B', description: '', isActive: true, createdAt: new Date(), updatedAt: new Date(), createdBy: 'admin', updatedBy: 'admin' },
-    { id: '5', name: 'Marketing', type: 'expense', color: '#8B5CF6', description: '', isActive: true, createdAt: new Date(), updatedAt: new Date(), createdBy: 'admin', updatedBy: 'admin' }
-  ];
+  };
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -167,18 +108,16 @@ const DREManager: React.FC<DREManagerProps> = ({
   };
 
   const calculateDRE = useMemo((): DREData => {
-    const currentRevenues = revenues.length > 0 ? revenues : mockRevenues;
-    const currentExpenses = expenses.length > 0 ? expenses : mockExpenses;
 
     // Filtrar por período
-    const filteredRevenues = currentRevenues.filter(revenue => {
+    const filteredRevenues = revenues.filter((revenue: Revenue) => {
       const date = new Date(revenue.dueDate);
       const start = new Date(filters.startDate);
       const end = new Date(filters.endDate);
       return date >= start && date <= end;
     });
 
-    const filteredExpenses = currentExpenses.filter(expense => {
+    const filteredExpenses = expenses.filter((expense: Expense) => {
       const date = new Date(expense.dueDate);
       const start = new Date(filters.startDate);
       const end = new Date(filters.endDate);
@@ -186,29 +125,29 @@ const DREManager: React.FC<DREManagerProps> = ({
     });
 
     // Calcular receitas
-    const receitaBruta = filteredRevenues.reduce((sum, revenue) => sum + revenue.amount, 0);
+    const receitaBruta = filteredRevenues.reduce((sum: number, revenue: Revenue) => sum + revenue.amount, 0);
     const deducoes = receitaBruta * 0.08; // Simulando impostos sobre vendas
     const receitaLiquida = receitaBruta - deducoes;
 
     // Calcular custos e despesas por categoria
     const custoProdutosVendidos = filteredExpenses
-      .filter(expense => expense.categoryId === '2') // Categoria de produtos
-      .reduce((sum, expense) => sum + expense.amount, 0);
+      .filter((expense: Expense) => expense.categoryId === '2') // Categoria de produtos
+      .reduce((sum: number, expense: Expense) => sum + expense.amount, 0);
 
     const lucroBruto = receitaLiquida - custoProdutosVendidos;
 
     // Despesas operacionais
     const despesasVendas = filteredExpenses
-      .filter(expense => expense.categoryId === '5') // Marketing
-      .reduce((sum, expense) => sum + expense.amount, 0);
+      .filter((expense: Expense) => expense.categoryId === '5') // Marketing
+      .reduce((sum: number, expense: Expense) => sum + expense.amount, 0);
 
     const despesasAdministrativas = filteredExpenses
-      .filter(expense => ['3', '4'].includes(expense.categoryId || '')) // Pessoal + Infraestrutura
-      .reduce((sum, expense) => sum + expense.amount, 0);
+      .filter((expense: Expense) => ['3', '4'].includes(expense.categoryId || '')) // Pessoal + Infraestrutura
+      .reduce((sum: number, expense: Expense) => sum + expense.amount, 0);
 
     const despesasFinanceiras = filteredExpenses
-      .filter(expense => expense.categoryId === '6') // Categoria financeira (se existir)
-      .reduce((sum, expense) => sum + expense.amount, 0);
+      .filter((expense: Expense) => expense.categoryId === '6') // Categoria financeira (se existir)
+      .reduce((sum: number, expense: Expense) => sum + expense.amount, 0);
 
     const totalDespesasOperacionais = despesasVendas + despesasAdministrativas + despesasFinanceiras;
 

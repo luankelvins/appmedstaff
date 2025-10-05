@@ -81,7 +81,7 @@ export const ChatNotificationButton: React.FC<ChatNotificationButtonProps> = ({
               <div className="p-4">
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-sm font-medium text-gray-700">
-                    {unreadCount} mensagem{unreadCount > 1 ? 's' : ''} não lida{unreadCount > 1 ? 's' : ''}
+                    {unreadCount} nova{unreadCount > 1 ? 's' : ''} mensagem{unreadCount > 1 ? 'ns' : ''}
                   </span>
                   <button
                     onClick={markAllAsRead}

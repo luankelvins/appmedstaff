@@ -1,12 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Revenue, 
   FinancialCategory, 
   BankAccount, 
   PaymentMethod, 
   TransactionStatus,
-  RecurrenceConfig 
+  RecurrenceConfig,
+  FinancialFilter
 } from '../../../types/financial';
+import { financialService } from '../../../services/financialService';
+import { PaginationParams, PaginatedResponse } from '../../../services/paginationService';
+import Pagination from '../../Common/Pagination';
+import { AdvancedFilters } from '../../Common/AdvancedFilters';
 import { 
   DollarSign, 
   Calendar, 
@@ -37,106 +42,27 @@ interface LocalRevenueFormData {
   notes: string;
 }
 
-// Mock data para demonstração
-const mockCategories: FinancialCategory[] = [
-  { 
-    id: '1', 
-    name: 'Vendas', 
-    type: 'income', 
-    description: 'Receitas de vendas', 
-    color: '#10B981', 
-    isActive: true, 
-    createdAt: new Date(), 
-    updatedAt: new Date(),
-    createdBy: 'admin',
-    updatedBy: 'admin'
-  },
-  { 
-    id: '2', 
-    name: 'Serviços', 
-    type: 'income', 
-    description: 'Receitas de serviços', 
-    color: '#3B82F6', 
-    isActive: true, 
-    createdAt: new Date(), 
-    updatedAt: new Date(),
-    createdBy: 'admin',
-    updatedBy: 'admin'
-  }
-];
-
-const mockBankAccounts: BankAccount[] = [
-  { 
-    id: '1', 
-    name: 'Conta Corrente Principal', 
-    bank: 'Banco do Brasil', 
-    accountNumber: '12345-6', 
-    agency: '1234', 
-    accountType: 'checking',
-    balance: 50000, 
-    isActive: true, 
-    createdAt: new Date(), 
-    updatedAt: new Date(),
-    createdBy: 'admin',
-    updatedBy: 'admin'
-  }
-];
-
-const mockPaymentMethods: PaymentMethod[] = [
-  { 
-    id: '1', 
-    name: 'Dinheiro', 
-    type: 'cash', 
-    isActive: true, 
-    createdAt: new Date(), 
-    updatedAt: new Date(),
-    createdBy: 'admin',
-    updatedBy: 'admin'
-  },
-  { 
-    id: '2', 
-    name: 'PIX', 
-    type: 'pix', 
-    isActive: true, 
-    createdAt: new Date(), 
-    updatedAt: new Date(),
-    createdBy: 'admin',
-    updatedBy: 'admin'
-  }
-];
-
-const mockRevenues: Revenue[] = [
-  {
-    id: '1',
-    description: 'Venda de produtos médicos',
-    amount: 15000,
-    dueDate: new Date('2024-01-15'),
-    receivedDate: new Date('2024-01-15'),
-    status: 'confirmed',
-    categoryId: '1',
-    bankAccountId: '1',
-    paymentMethodId: '2',
-    recurrence: {
-      isRecurrent: false
-    },
-    tags: ['vendas', 'produtos'],
-    notes: 'Venda para Hospital São Lucas',
-    createdAt: new Date('2024-01-10'),
-    updatedAt: new Date('2024-01-15'),
-    createdBy: 'admin',
-    updatedBy: 'admin'
-  }
-];
-
 const RevenuesManager: React.FC = () => {
-  const [revenues, setRevenues] = useState<Revenue[]>(mockRevenues);
-  const [categories] = useState<FinancialCategory[]>(mockCategories);
-  const [bankAccounts] = useState<BankAccount[]>(mockBankAccounts);
-  const [paymentMethods] = useState<PaymentMethod[]>(mockPaymentMethods);
+  const [revenues, setRevenues] = useState<Revenue[]>([]);
+  const [categories, setCategories] = useState<FinancialCategory[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRevenue, setEditingRevenue] = useState<Revenue | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Estados de paginação
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalItems, setTotalItems] = useState(0);
+  const [paginationLoading, setPaginationLoading] = useState(false);
+
+  // Estado para filtros avançados
+  const [advancedFilter, setAdvancedFilter] = useState<FinancialFilter>({});
 
   const [formData, setFormData] = useState<LocalRevenueFormData>({
     description: '',
@@ -153,6 +79,80 @@ const RevenuesManager: React.FC = () => {
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Carregar dados iniciais
+  useEffect(() => {
+    loadInitialData();
+  }, []);
+
+  // Carregar receitas quando parâmetros de paginação mudarem
+  useEffect(() => {
+    loadRevenues();
+  }, [currentPage, itemsPerPage, searchTerm, statusFilter, advancedFilter]);
+
+  const loadInitialData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const [categoriesData, bankAccountsData, paymentMethodsData] = await Promise.all([
+        financialService.getCategories(),
+        financialService.getBankAccounts(),
+        financialService.getPaymentMethods()
+      ]);
+      
+      setCategories(categoriesData.filter(cat => cat.type === 'income'));
+      setBankAccounts(bankAccountsData);
+      setPaymentMethods(paymentMethodsData);
+
+      // Carregar receitas paginadas
+      await loadRevenues();
+    } catch (err) {
+      setError('Erro ao carregar dados. Tente novamente.');
+      console.error('Erro ao carregar dados:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadRevenues = async () => {
+    try {
+      setPaginationLoading(true);
+      setError(null);
+
+      // Construir filtros combinando filtros básicos e avançados
+      const filter: FinancialFilter = {
+        ...advancedFilter
+      };
+      
+      if (statusFilter !== 'all') {
+        filter.status = [statusFilter as TransactionStatus];
+      }
+      if (searchTerm) {
+        filter.searchTerm = searchTerm;
+      }
+
+      // Parâmetros de paginação
+      const params: PaginationParams = {
+        page: currentPage,
+        limit: itemsPerPage,
+        search: searchTerm || undefined,
+        sortBy: 'received_date',
+        sortOrder: 'desc'
+      };
+
+      const result = await financialService.getRevenuesPaginated(params, filter);
+      
+      setRevenues(result.data);
+      setTotalPages(result.pagination.totalPages);
+      setTotalItems(result.pagination.totalItems);
+    } catch (err) {
+      setError('Erro ao carregar receitas. Tente novamente.');
+      console.error('Erro ao carregar receitas:', err);
+    } finally {
+      setPaginationLoading(false);
+    }
+  };
 
   // Helper functions for better UX
   const getStatusIcon = (status: TransactionStatus) => {
@@ -230,17 +230,13 @@ const RevenuesManager: React.FC = () => {
     setEditingRevenue(null);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!validateForm()) return;
 
-    const now = new Date();
-    
-    if (editingRevenue) {
-      // Atualizar receita existente
-      const updatedRevenue: Revenue = {
-        ...editingRevenue,
+    try {
+      const revenueData = {
         description: formData.description,
         amount: formData.amount,
         dueDate: new Date(formData.dueDate),
@@ -254,41 +250,27 @@ const RevenuesManager: React.FC = () => {
         },
         tags: formData.tags,
         notes: formData.notes,
-        updatedAt: now,
-        updatedBy: 'admin'
+        createdBy: 'current-user', // TODO: Pegar do contexto de autenticação
+        updatedBy: 'current-user'  // TODO: Pegar do contexto de autenticação
       };
+      
+      if (editingRevenue) {
+        // Atualizar receita existente
+        await financialService.updateRevenue(editingRevenue.id, revenueData);
+      } else {
+        // Criar nova receita
+        await financialService.createRevenue(revenueData);
+      }
 
-      setRevenues(prev => prev.map(revenue => 
-        revenue.id === editingRevenue.id ? updatedRevenue : revenue
-      ));
-    } else {
-      // Criar nova receita
-      const newRevenue: Revenue = {
-        id: Date.now().toString(),
-        description: formData.description,
-        amount: formData.amount,
-        dueDate: new Date(formData.dueDate),
-        receivedDate: formData.receivedDate ? new Date(formData.receivedDate) : undefined,
-        status: formData.status,
-        categoryId: formData.categoryId,
-        bankAccountId: formData.bankAccountId,
-        paymentMethodId: formData.paymentMethodId,
-        recurrence: {
-          isRecurrent: formData.isRecurring
-        },
-        tags: formData.tags,
-        notes: formData.notes,
-        createdAt: now,
-        updatedAt: now,
-        createdBy: 'admin',
-        updatedBy: 'admin'
-      };
-
-      setRevenues(prev => [...prev, newRevenue]);
+      setIsModalOpen(false);
+      resetForm();
+      
+      // Recarregar dados paginados
+      await loadRevenues();
+    } catch (err) {
+      setError('Erro ao salvar receita. Tente novamente.');
+      console.error('Erro ao salvar receita:', err);
     }
-
-    setIsModalOpen(false);
-    resetForm();
   };
 
   const handleEdit = (revenue: Revenue) => {
@@ -309,9 +291,16 @@ const RevenuesManager: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (window.confirm('Tem certeza que deseja excluir esta receita?')) {
-      setRevenues(prev => prev.filter(revenue => revenue.id !== id));
+      try {
+        await financialService.deleteRevenue(id);
+        // Recarregar dados paginados
+        await loadRevenues();
+      } catch (err) {
+        setError('Erro ao excluir receita. Tente novamente.');
+        console.error('Erro ao excluir receita:', err);
+      }
     }
   };
 
@@ -320,13 +309,25 @@ const RevenuesManager: React.FC = () => {
     setFormData(prev => ({ ...prev, tags }));
   };
 
-  const filteredRevenues = revenues.filter(revenue => {
-    const matchesSearch = revenue.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         revenue.notes?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || revenue.status === statusFilter;
-    
-    return matchesSearch && matchesStatus;
-  });
+  // Handlers de paginação
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const handleItemsPerPageChange = (newItemsPerPage: number) => {
+    setItemsPerPage(newItemsPerPage);
+    setCurrentPage(1); // Resetar para primeira página
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+    setCurrentPage(1); // Resetar para primeira página
+  };
+
+  const handleStatusFilterChange = (value: string) => {
+    setStatusFilter(value);
+    setCurrentPage(1); // Resetar para primeira página
+  };
 
   const getCategoryName = (categoryId: string) => {
     return categories.find(cat => cat.id === categoryId)?.name || 'N/A';
@@ -360,12 +361,37 @@ const RevenuesManager: React.FC = () => {
     }
   };
 
-  const totalRevenues = filteredRevenues.reduce((sum, revenue) => sum + revenue.amount, 0);
-  const confirmedRevenues = filteredRevenues.filter(r => r.status === 'confirmed').reduce((sum, revenue) => sum + revenue.amount, 0);
-  const pendingRevenues = filteredRevenues.filter(r => r.status === 'pending').reduce((sum, revenue) => sum + revenue.amount, 0);
+  const totalRevenues = revenues.reduce((sum, revenue) => sum + revenue.amount, 0);
+  const confirmedRevenues = revenues.filter(r => r.status === 'confirmed').reduce((sum, revenue) => sum + revenue.amount, 0);
+  const pendingRevenues = revenues.filter(r => r.status === 'pending').reduce((sum, revenue) => sum + revenue.amount, 0);
+
+  if (loading) {
+    return (
+      <div className="p-6 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Carregando receitas...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">
+      {error && (
+        <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-center">
+            <AlertCircle className="w-5 h-5 text-red-600 mr-2" />
+            <span className="text-red-800">{error}</span>
+            <button
+              onClick={() => setError(null)}
+              className="ml-auto text-red-600 hover:text-red-800"
+            >
+              <XCircle className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      )}
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold text-gray-900">Gerenciar Receitas</h2>
         <button
@@ -403,7 +429,7 @@ const RevenuesManager: React.FC = () => {
 
       {/* Filtros */}
       <div className="bg-white p-4 rounded-lg shadow border mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Buscar
@@ -411,7 +437,7 @@ const RevenuesManager: React.FC = () => {
             <input
               type="text"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
               placeholder="Buscar por descrição..."
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
@@ -422,7 +448,7 @@ const RevenuesManager: React.FC = () => {
             </label>
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => handleStatusFilterChange(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="all">Todos</option>
@@ -433,7 +459,27 @@ const RevenuesManager: React.FC = () => {
             </select>
           </div>
         </div>
+        
+        {/* Filtros Avançados */}
+        <AdvancedFilters
+          filter={advancedFilter}
+          onFilterChange={setAdvancedFilter}
+          categories={categories}
+          type="income"
+        />
       </div>
+
+      {/* Paginação */}
+       <div className="mb-6">
+         <Pagination
+           currentPage={currentPage}
+           totalPages={totalPages}
+           totalItems={totalItems}
+           itemsPerPage={itemsPerPage}
+           onPageChange={handlePageChange}
+           onItemsPerPageChange={handleItemsPerPageChange}
+         />
+       </div>
 
       {/* Lista de Receitas */}
       <div className="bg-white rounded-lg shadow border overflow-hidden">
@@ -465,7 +511,7 @@ const RevenuesManager: React.FC = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredRevenues.map((revenue) => (
+              {revenues.map((revenue) => (
                 <tr key={revenue.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div>

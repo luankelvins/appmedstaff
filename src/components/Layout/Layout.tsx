@@ -1,54 +1,25 @@
 import React, { useState } from 'react'
-import { Header } from './Header'
+import { Outlet } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
-import MobileNavigation from './MobileNavigation'
+import { MobileNavigation } from './MobileNavigation'
 
-interface LayoutProps {
-  children: React.ReactNode
-}
-
-export const Layout = ({ children }: LayoutProps) => {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-
-  const toggleSidebar = () => {
-    setIsSidebarOpen(!isSidebarOpen)
-  }
-
-  const closeSidebar = () => {
-    setIsSidebarOpen(false)
-  }
+const Layout: React.FC = () => {
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="flex h-screen">
-        {/* Desktop Sidebar */}
-        <Sidebar 
-          isOpen={isSidebarOpen} 
-          onClose={closeSidebar} 
-        />
-        
-        {/* Mobile Navigation */}
-        <MobileNavigation 
-          isOpen={isSidebarOpen}
-          onClose={closeSidebar}
-        />
-        
-        {/* Main content area */}
-        <div className="flex-1 flex flex-col lg:ml-64">
-          {/* Header */}
-          <Header 
-            onToggleSidebar={toggleSidebar} 
-            isSidebarOpen={isSidebarOpen} 
-          />
-          
-          {/* Main content */}
-          <main className="flex-1 overflow-auto">
-            <div className="p-4 lg:p-6">
-              {children}
-            </div>
-          </main>
+      {/* Sidebar */}
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      
+      {/* Mobile Navigation */}
+      <MobileNavigation isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      
+      {/* Main Content */}
+      <main className="lg:pl-64">
+        <div className="px-4 sm:px-6 lg:px-8 py-8">
+          <Outlet />
         </div>
-      </div>
+      </main>
     </div>
   )
 }

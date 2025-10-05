@@ -9,6 +9,7 @@ import FinancialReports from './Reports/FinancialReports';
 import FinancialCharts from './Charts/FinancialCharts';
 import DREManager from './DRE/DREManager';
 import { FinancialStats, Revenue, Expense, FinancialNotification, FinancialCategory, BankAccount, PaymentMethod } from '../../types/financial';
+import { financialService } from '../../services/financialService';
 
 type FinancialView = 
   | 'overview' 
@@ -26,161 +27,160 @@ const FinancialDashboard: React.FC = () => {
   const [stats, setStats] = useState<FinancialStats | null>(null);
   const [notifications, setNotifications] = useState<FinancialNotification[]>([]);
   const [recentTransactions, setRecentTransactions] = useState<(Revenue | Expense)[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Mock data para relatórios
-  const mockCategories: FinancialCategory[] = [
-    {
-      id: '1',
-      name: 'Serviços',
-      type: 'income',
-      color: '#10B981',
-      description: 'Receitas de serviços prestados',
-      isActive: true,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      createdBy: 'admin',
-      updatedBy: 'admin'
-    },
-    {
-      id: '2',
-      name: 'Produtos',
-      type: 'income',
-      color: '#3B82F6',
-      description: 'Receitas de vendas de produtos',
-      isActive: true,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      createdBy: 'admin',
-      updatedBy: 'admin'
+  // Estados para dados reais
+  const [categories, setCategories] = useState<FinancialCategory[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [revenues, setRevenues] = useState<Revenue[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+
+  // Função para carregar dados financeiros
+  const loadFinancialData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const [
+        categoriesData,
+        bankAccountsData,
+        paymentMethodsData,
+        revenuesData,
+        expensesData,
+        notificationsData
+      ] = await Promise.all([
+        financialService.getCategories(),
+        financialService.getBankAccounts(),
+        financialService.getPaymentMethods(),
+        financialService.getRevenues(),
+        financialService.getExpenses(),
+        financialService.getNotifications()
+      ]);
+
+      setCategories(categoriesData);
+      setBankAccounts(bankAccountsData);
+      setPaymentMethods(paymentMethodsData);
+      setRevenues(revenuesData);
+      setExpenses(expensesData);
+      setNotifications(notificationsData);
+
+      // Calcular estatísticas baseadas nos dados reais
+      calculateStats(revenuesData, expensesData, categoriesData);
+
+      // Definir transações recentes (últimas 10)
+      const allTransactions = [...revenuesData, ...expensesData]
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 10);
+      setRecentTransactions(allTransactions);
+
+    } catch (err) {
+      console.error('Erro ao carregar dados financeiros:', err);
+      setError('Erro ao carregar dados financeiros');
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
-  const mockBankAccounts: BankAccount[] = [
-    {
-      id: '1',
-      name: 'Conta Corrente Principal',
-      bank: 'Banco do Brasil',
-      accountNumber: '12345-6',
-      agency: '1234',
-      accountType: 'checking',
-      balance: 50000,
-      isActive: true,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      createdBy: 'admin',
-      updatedBy: 'admin'
-    }
-  ];
+  // Função para calcular estatísticas
+  const calculateStats = (revenuesData: Revenue[], expensesData: Expense[], categoriesData: FinancialCategory[]) => {
+    const totalRevenue = revenuesData.reduce((sum, revenue) => sum + revenue.amount, 0);
+    const totalExpenses = expensesData.reduce((sum, expense) => sum + expense.amount, 0);
+    const netIncome = totalRevenue - totalExpenses;
 
-  const mockPaymentMethods: PaymentMethod[] = [
-    {
-      id: '1',
-      name: 'PIX',
-      type: 'pix',
-      isActive: true,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      createdBy: 'admin',
-      updatedBy: 'admin'
-    }
-  ];
+    const pendingRevenue = revenuesData
+      .filter(r => r.status === 'pending')
+      .reduce((sum, revenue) => sum + revenue.amount, 0);
 
-  const mockRevenues: Revenue[] = [
-    {
-      id: '1',
-      description: 'Serviço de consultoria',
-      amount: 5000,
-      dueDate: new Date('2024-01-30'),
-      categoryId: '1',
-      paymentMethodId: '1',
-      bankAccountId: '1',
-      status: 'pending',
-      recurrence: { isRecurrent: false },
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      createdBy: 'admin',
-      updatedBy: 'admin'
-    }
-  ];
+    const pendingExpenses = expensesData
+      .filter(e => e.status === 'pending')
+      .reduce((sum, expense) => sum + expense.amount, 0);
 
-  const mockExpenses: Expense[] = [
-    {
-      id: '1',
-      description: 'Aluguel do escritório',
-      amount: 3000,
-      dueDate: new Date('2024-01-31'),
-      categoryId: '1',
-      paymentMethodId: '1',
-      bankAccountId: '1',
-      status: 'pending',
-      recurrence: { isRecurrent: true, period: 'monthly', interval: 1 },
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      createdBy: 'admin',
-      updatedBy: 'admin'
-    }
-  ];
+    const now = new Date();
+    const overdueRevenue = revenuesData
+      .filter(r => r.status === 'pending' && new Date(r.dueDate) < now)
+      .reduce((sum, revenue) => sum + revenue.amount, 0);
 
-  // Mock data para estatísticas
-  useEffect(() => {
+    const overdueExpenses = expensesData
+      .filter(e => e.status === 'pending' && new Date(e.dueDate) < now)
+      .reduce((sum, expense) => sum + expense.amount, 0);
+
+    // Breakdown por categoria
+    const categoryBreakdown = categoriesData.map(category => {
+      const categoryRevenues = revenuesData
+        .filter(r => r.categoryId === category.id)
+        .reduce((sum, revenue) => sum + revenue.amount, 0);
+      
+      return {
+        categoryId: category.id,
+        categoryName: category.name,
+        amount: categoryRevenues,
+        percentage: totalRevenue > 0 ? (categoryRevenues / totalRevenue) * 100 : 0
+      };
+    }).filter(item => item.amount > 0);
+
+    // Trend mensal (últimos 3 meses)
+    const monthlyTrend = calculateMonthlyTrend(revenuesData, expensesData);
+
     setStats({
-      totalRevenue: 45000,
-      totalExpenses: 32000,
-      netIncome: 13000,
-      pendingRevenue: 8500,
-      pendingExpenses: 5200,
-      overdueRevenue: 1200,
-      overdueExpenses: 800,
+      totalRevenue,
+      totalExpenses,
+      netIncome,
+      pendingRevenue,
+      pendingExpenses,
+      overdueRevenue,
+      overdueExpenses,
       transactionCount: {
-        revenue: 28,
-        expense: 45
+        revenue: revenuesData.length,
+        expense: expensesData.length
       },
-      categoryBreakdown: [
-        { categoryId: '1', categoryName: 'Serviços', amount: 25000, percentage: 55.6 },
-        { categoryId: '2', categoryName: 'Produtos', amount: 15000, percentage: 33.3 },
-        { categoryId: '3', categoryName: 'Consultoria', amount: 5000, percentage: 11.1 }
-      ],
-      monthlyTrend: [
-        { month: 'Jan', revenue: 42000, expenses: 28000, netIncome: 14000 },
-        { month: 'Fev', revenue: 38000, expenses: 30000, netIncome: 8000 },
-        { month: 'Mar', revenue: 45000, expenses: 32000, netIncome: 13000 }
-      ]
+      categoryBreakdown,
+      monthlyTrend
     });
+  };
 
-    setNotifications([
-      {
-        id: '1',
-        type: 'due_date',
-        title: 'Vencimentos Próximos',
-        message: '5 transações vencem nos próximos 3 dias',
-        entityType: 'expense',
-        entityId: '1',
-        isRead: false,
-        priority: 'high',
-        actionRequired: true,
-        dueDate: new Date('2024-01-25'),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        createdBy: 'system',
-        updatedBy: 'system'
-      },
-      {
-        id: '2',
-        type: 'overdue',
-        title: 'Transações Vencidas',
-        message: '2 despesas estão em atraso',
-        entityType: 'expense',
-        entityId: '2',
-        isRead: false,
-        priority: 'high',
-        actionRequired: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        createdBy: 'system',
-        updatedBy: 'system'
-      }
-    ]);
+  // Função para calcular trend mensal
+  const calculateMonthlyTrend = (revenuesData: Revenue[], expensesData: Expense[]) => {
+    const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    const now = new Date();
+    const trend = [];
+
+    for (let i = 2; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
+      const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+
+      const monthRevenues = revenuesData
+        .filter(r => {
+          const createdDate = new Date(r.createdAt);
+          return createdDate >= monthStart && createdDate <= monthEnd;
+        })
+        .reduce((sum, revenue) => sum + revenue.amount, 0);
+
+      const monthExpenses = expensesData
+        .filter(e => {
+          const createdDate = new Date(e.createdAt);
+          return createdDate >= monthStart && createdDate <= monthEnd;
+        })
+        .reduce((sum, expense) => sum + expense.amount, 0);
+
+      trend.push({
+        month: months[date.getMonth()],
+        revenue: monthRevenues,
+        expenses: monthExpenses,
+        netIncome: monthRevenues - monthExpenses
+      });
+    }
+
+    return trend;
+  };
+
+  useEffect(() => {
+    loadFinancialData();
   }, []);
+
+
 
   const renderOverview = () => (
     <div className="space-y-6 p-6">
@@ -240,20 +240,20 @@ const FinancialDashboard: React.FC = () => {
         return <ExpensesManager />;
       case 'categories':
         return <FinancialCategoriesManager />;
-      case 'bank-accounts':
+      case 'bankAccounts':
         return <BankAccountsManager />;
-      case 'payment-methods':
+      case 'paymentMethods':
         return <PaymentMethodsManager />;
       case 'recurrence':
         return <RecurrenceManager />;
       case 'reports':
           return (
             <FinancialReports 
-              revenues={mockRevenues}
-              expenses={mockExpenses}
-              categories={mockCategories}
-              bankAccounts={mockBankAccounts}
-              paymentMethods={mockPaymentMethods}
+              revenues={revenues}
+              expenses={expenses}
+              categories={categories}
+              bankAccounts={bankAccounts}
+              paymentMethods={paymentMethods}
             />
           );
       case 'dre':

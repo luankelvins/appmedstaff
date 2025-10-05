@@ -1,4 +1,6 @@
 import { supabase } from '../config/supabase';
+import { financialCacheService } from './financialCacheService';
+import { paginationService, PaginationParams, PaginatedResponse } from './paginationService';
 import type {
   FinancialCategory,
   BankAccount,
@@ -15,39 +17,71 @@ import type {
 export class FinancialService {
   // ==================== CATEGORIAS ====================
   
+  /**
+   * Obtém todas as categorias financeiras
+   */
   async getCategories(type?: 'income' | 'expense'): Promise<FinancialCategory[]> {
-    let query = supabase
-      .from('financial_categories')
-      .select('*')
-      .eq('is_active', true)
-      .order('name');
+    try {
+      // Verifica cache primeiro
+      const cached = financialCacheService.getCategoriesCache();
+      if (cached) {
+        return cached;
+      }
 
-    if (type) {
-      query = query.eq('type', type);
+      let query = supabase
+        .from('financial_categories')
+        .select('*')
+        .eq('is_active', true)
+        .order('name');
+
+      if (type) {
+        query = query.eq('type', type);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      
+      const categories = (data || []).map(this.mapCategoryFromDB);
+      
+      // Armazena no cache
+      financialCacheService.setCategoriesCache(categories);
+      
+      return categories;
+    } catch (error) {
+      console.error('Erro ao buscar categorias:', error);
+      throw new Error('Falha ao carregar categorias financeiras');
     }
-
-    const { data, error } = await query;
-    if (error) throw error;
-    return data || [];
   }
 
+  /**
+   * Cria uma nova categoria financeira
+   */
   async createCategory(category: Omit<FinancialCategory, 'id' | 'createdAt' | 'updatedAt'>): Promise<FinancialCategory> {
-    const { data, error } = await supabase
-      .from('financial_categories')
-      .insert([{
-        name: category.name,
-        description: category.description,
-        type: category.type,
-        color: category.color,
-        icon: category.icon,
-        parent_category_id: category.parentCategoryId,
-        is_active: category.isActive
-      }])
-      .select()
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('financial_categories')
+        .insert([{
+          name: category.name,
+          type: category.type,
+          description: category.description,
+          color: category.color,
+          icon: category.icon,
+          parent_category_id: category.parentCategoryId,
+          is_active: category.isActive
+        }])
+        .select()
+        .single();
 
-    if (error) throw error;
-    return this.mapCategoryFromDB(data);
+      if (error) throw error;
+
+      // Invalida cache de categorias
+      financialCacheService.invalidateCategoriesCache();
+
+      return this.mapCategoryFromDB(data);
+    } catch (error) {
+      console.error('Erro ao criar categoria:', error);
+      throw new Error('Falha ao criar categoria financeira');
+    }
   }
 
   async updateCategory(id: string, updates: Partial<FinancialCategory>): Promise<FinancialCategory> {
@@ -65,6 +99,10 @@ export class FinancialService {
       .single();
 
     if (error) throw error;
+    
+    // Invalida cache de categorias
+    financialCacheService.invalidateCategoriesCache();
+    
     return this.mapCategoryFromDB(data);
   }
 
@@ -75,6 +113,9 @@ export class FinancialService {
       .eq('id', id);
 
     if (error) throw error;
+    
+    // Invalida cache de categorias
+    financialCacheService.invalidateCategoriesCache();
   }
 
   // ==================== CONTAS BANCÁRIAS ====================
@@ -170,193 +211,417 @@ export class FinancialService {
   // ==================== RECEITAS ====================
 
   async getRevenues(filter?: FinancialFilter): Promise<Revenue[]> {
-    let query = supabase
-      .from('revenues')
-      .select(`
+    try {
+      // Verifica cache primeiro
+      const cached = financialCacheService.getRevenuesCache(filter);
+      if (cached) {
+        return cached;
+      }
+
+      let query = supabase
+        .from('revenues')
+        .select(`
+          *,
+          category:financial_categories(*),
+          payment_method:payment_methods(*),
+          bank_account:bank_accounts(*)
+        `)
+        .order('received_date', { ascending: false });
+
+      if (filter) {
+        if (filter.status && filter.status.length > 0) {
+          query = query.in('status', filter.status);
+        }
+        if (filter.categoryIds && filter.categoryIds.length > 0) {
+          query = query.in('category_id', filter.categoryIds);
+        }
+        if (filter.startDate) query = query.gte('received_date', filter.startDate.toISOString().split('T')[0]);
+        if (filter.endDate) query = query.lte('received_date', filter.endDate.toISOString().split('T')[0]);
+        if (filter.searchTerm) {
+          query = query.or(`description.ilike.%${filter.searchTerm}%,payer_name.ilike.%${filter.searchTerm}%`);
+        }
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      
+      const revenues = data?.map(this.mapRevenueFromDB) || [];
+      
+      // Armazena no cache
+      financialCacheService.setRevenuesCache(revenues, filter);
+      
+      return revenues;
+    } catch (error) {
+      console.error('Erro ao buscar receitas:', error);
+      throw new Error('Falha ao carregar receitas');
+    }
+  }
+
+  async getRevenuesPaginated(
+    params: PaginationParams,
+    filter?: FinancialFilter
+  ): Promise<PaginatedResponse<Revenue>> {
+    try {
+      const selectFields = `
         *,
         category:financial_categories(*),
         payment_method:payment_methods(*),
         bank_account:bank_accounts(*)
-      `)
-      .order('due_date', { ascending: false });
+      `;
 
-    if (filter) {
-      if (filter.status && filter.status.length > 0) {
-        query = query.in('status', filter.status);
-      }
-      if (filter.categoryIds && filter.categoryIds.length > 0) {
-        query = query.in('category_id', filter.categoryIds);
-      }
-      if (filter.startDate) query = query.gte('due_date', filter.startDate.toISOString().split('T')[0]);
-      if (filter.endDate) query = query.lte('due_date', filter.endDate.toISOString().split('T')[0]);
-      if (filter.searchTerm) {
-        query = query.or(`description.ilike.%${filter.searchTerm}%,client_name.ilike.%${filter.searchTerm}%`);
-      }
+      const additionalFilters = (query: any) => {
+        if (filter) {
+          if (filter.status && filter.status.length > 0) {
+            query = query.in('status', filter.status);
+          }
+          if (filter.categoryIds && filter.categoryIds.length > 0) {
+            query = query.in('category_id', filter.categoryIds);
+          }
+          if (filter.startDate) {
+            query = query.gte('received_date', filter.startDate.toISOString().split('T')[0]);
+          }
+          if (filter.endDate) {
+            query = query.lte('received_date', filter.endDate.toISOString().split('T')[0]);
+          }
+        }
+        return query;
+      };
+
+      // Configurar campos de busca
+      const searchFields = ['description', 'payer_name', 'notes'];
+      const paginationParams = {
+        ...params,
+        searchFields: params.search ? searchFields : undefined,
+        sortBy: params.sortBy || 'received_date',
+        sortOrder: params.sortOrder || 'desc' as const
+      };
+
+      const result = await paginationService.paginate<any>(
+        'revenues',
+        paginationParams,
+        selectFields,
+        additionalFilters
+      );
+
+      // Mapear os dados para o formato correto
+      const mappedData = result.data.map(this.mapRevenueFromDB);
+
+      return {
+        ...result,
+        data: mappedData
+      };
+    } catch (error) {
+      console.error('Erro ao buscar receitas paginadas:', error);
+      throw error;
     }
-
-    const { data, error } = await query;
-    if (error) throw error;
-    return data?.map(this.mapRevenueFromDB) || [];
   }
 
   async createRevenue(revenue: Omit<Revenue, 'id' | 'createdAt' | 'updatedAt'>): Promise<Revenue> {
-    const { data, error } = await supabase
-      .from('revenues')
-      .insert([{
-        description: revenue.description,
-        amount: revenue.amount,
-        due_date: revenue.dueDate,
-        received_date: revenue.receivedDate,
-        status: revenue.status,
-        category_id: revenue.categoryId,
-        payment_method_id: revenue.paymentMethodId,
-        bank_account_id: revenue.bankAccountId,
-        is_recurrent: revenue.recurrence.isRecurrent,
-        recurrence_config: revenue.recurrence,
-        client_name: revenue.clientName,
-        invoice_number: revenue.invoiceNumber,
-        notes: revenue.notes,
-        tags: revenue.tags,
-        attachments: revenue.attachments
-      }])
-      .select(`
-        *,
-        category:financial_categories(*),
-        payment_method:payment_methods(*),
-        bank_account:bank_accounts(*)
-      `)
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('revenues')
+        .insert([{
+          description: revenue.description,
+          amount: revenue.amount,
+          due_date: revenue.dueDate,
+          received_date: revenue.receivedDate,
+          status: revenue.status,
+          category_id: revenue.categoryId,
+          payment_method_id: revenue.paymentMethodId,
+          bank_account_id: revenue.bankAccountId,
+          is_recurrent: revenue.recurrence.isRecurrent,
+          recurrence_config: revenue.recurrence,
+          client_name: revenue.clientName,
+          invoice_number: revenue.invoiceNumber,
+          notes: revenue.notes,
+          tags: revenue.tags,
+          attachments: revenue.attachments
+        }])
+        .select(`
+          *,
+          category:financial_categories(*),
+          payment_method:payment_methods(*),
+          bank_account:bank_accounts(*)
+        `)
+        .single();
 
-    if (error) throw error;
-    return this.mapRevenueFromDB(data);
+      if (error) throw error;
+
+      // Invalida cache de receitas
+      financialCacheService.invalidateRevenuesCache();
+
+      return this.mapRevenueFromDB(data);
+    } catch (error) {
+      console.error('Erro ao criar receita:', error);
+      throw new Error('Falha ao criar receita');
+    }
   }
 
   async updateRevenue(id: string, updates: Partial<Revenue>): Promise<Revenue> {
-    const { data, error } = await supabase
-      .from('revenues')
-      .update({
-        description: updates.description,
-        amount: updates.amount,
-        due_date: updates.dueDate,
-        received_date: updates.receivedDate,
-        status: updates.status,
-        category_id: updates.categoryId,
-        payment_method_id: updates.paymentMethodId,
-        bank_account_id: updates.bankAccountId,
-        is_recurrent: updates.recurrence?.isRecurrent,
-        recurrence_config: updates.recurrence,
-        client_name: updates.clientName,
-        invoice_number: updates.invoiceNumber,
-        notes: updates.notes,
-        tags: updates.tags,
-        attachments: updates.attachments
-      })
-      .eq('id', id)
-      .select(`
-        *,
-        category:financial_categories(*),
-        payment_method:payment_methods(*),
-        bank_account:bank_accounts(*)
-      `)
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('revenues')
+        .update({
+          description: updates.description,
+          amount: updates.amount,
+          due_date: updates.dueDate,
+          received_date: updates.receivedDate,
+          status: updates.status,
+          category_id: updates.categoryId,
+          payment_method_id: updates.paymentMethodId,
+          bank_account_id: updates.bankAccountId,
+          is_recurrent: updates.recurrence?.isRecurrent,
+          recurrence_config: updates.recurrence,
+          client_name: updates.clientName,
+          invoice_number: updates.invoiceNumber,
+          notes: updates.notes,
+          tags: updates.tags,
+          attachments: updates.attachments
+        })
+        .eq('id', id)
+        .select(`
+          *,
+          category:financial_categories(*),
+          payment_method:payment_methods(*),
+          bank_account:bank_accounts(*)
+        `)
+        .single();
 
-    if (error) throw error;
-    return this.mapRevenueFromDB(data);
+      if (error) throw error;
+
+      // Invalida cache de receitas
+      financialCacheService.invalidateRevenuesCache();
+
+      return this.mapRevenueFromDB(data);
+    } catch (error) {
+      console.error('Erro ao atualizar receita:', error);
+      throw new Error('Falha ao atualizar receita');
+    }
+  }
+
+  async deleteRevenue(id: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('revenues')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      // Invalida cache de receitas
+      financialCacheService.invalidateRevenuesCache();
+    } catch (error) {
+      console.error('Erro ao deletar receita:', error);
+      throw new Error('Falha ao deletar receita');
+    }
   }
 
   async getExpenses(filter?: FinancialFilter): Promise<Expense[]> {
-    let query = supabase
-      .from('expenses')
-      .select(`
+    try {
+      // Verifica cache primeiro
+      const cached = financialCacheService.getExpensesCache(filter);
+      if (cached) {
+        return cached;
+      }
+
+      let query = supabase
+        .from('expenses')
+        .select(`
+          *,
+          category:financial_categories(*),
+          payment_method:payment_methods(*),
+          bank_account:bank_accounts(*)
+        `)
+        .order('due_date', { ascending: false });
+
+      if (filter) {
+        if (filter.status && filter.status.length > 0) {
+          query = query.in('status', filter.status);
+        }
+        if (filter.categoryIds && filter.categoryIds.length > 0) {
+          query = query.in('category_id', filter.categoryIds);
+        }
+        if (filter.startDate) query = query.gte('due_date', filter.startDate.toISOString().split('T')[0]);
+        if (filter.endDate) query = query.lte('due_date', filter.endDate.toISOString().split('T')[0]);
+        if (filter.searchTerm) {
+          query = query.or(`description.ilike.%${filter.searchTerm}%,supplier_name.ilike.%${filter.searchTerm}%`);
+        }
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      
+      const expenses = data?.map(this.mapExpenseFromDB) || [];
+      
+      // Armazena no cache
+      financialCacheService.setExpensesCache(expenses, filter);
+      
+      return expenses;
+    } catch (error) {
+      console.error('Erro ao buscar despesas:', error);
+      throw new Error('Falha ao carregar despesas');
+    }
+  }
+
+  async getExpensesPaginated(
+    params: PaginationParams,
+    filter?: FinancialFilter
+  ): Promise<PaginatedResponse<Expense>> {
+    try {
+      const selectFields = `
         *,
         category:financial_categories(*),
         payment_method:payment_methods(*),
         bank_account:bank_accounts(*)
-      `)
-      .order('due_date', { ascending: false });
+      `;
 
-    if (filter) {
-      if (filter.status && filter.status.length > 0) {
-        query = query.in('status', filter.status);
-      }
-      if (filter.categoryIds && filter.categoryIds.length > 0) {
-        query = query.in('category_id', filter.categoryIds);
-      }
-      if (filter.startDate) query = query.gte('due_date', filter.startDate.toISOString().split('T')[0]);
-      if (filter.endDate) query = query.lte('due_date', filter.endDate.toISOString().split('T')[0]);
-      if (filter.searchTerm) {
-        query = query.or(`description.ilike.%${filter.searchTerm}%,supplier_name.ilike.%${filter.searchTerm}%`);
-      }
+      const additionalFilters = (query: any) => {
+        if (filter) {
+          if (filter.status && filter.status.length > 0) {
+            query = query.in('status', filter.status);
+          }
+          if (filter.categoryIds && filter.categoryIds.length > 0) {
+            query = query.in('category_id', filter.categoryIds);
+          }
+          if (filter.startDate) {
+            query = query.gte('due_date', filter.startDate.toISOString().split('T')[0]);
+          }
+          if (filter.endDate) {
+            query = query.lte('due_date', filter.endDate.toISOString().split('T')[0]);
+          }
+        }
+        return query;
+      };
+
+      // Configurar campos de busca
+      const searchFields = ['description', 'supplier_name', 'notes'];
+      const paginationParams = {
+        ...params,
+        searchFields: params.search ? searchFields : undefined,
+        sortBy: params.sortBy || 'due_date',
+        sortOrder: params.sortOrder || 'desc' as const
+      };
+
+      const result = await paginationService.paginate<any>(
+        'expenses',
+        paginationParams,
+        selectFields,
+        additionalFilters
+      );
+
+      // Mapear os dados para o formato correto
+      const mappedData = result.data.map(this.mapExpenseFromDB);
+
+      return {
+        ...result,
+        data: mappedData
+      };
+    } catch (error) {
+      console.error('Erro ao buscar despesas paginadas:', error);
+      throw error;
     }
-
-    const { data, error } = await query;
-    if (error) throw error;
-    return data?.map(this.mapExpenseFromDB) || [];
   }
 
   async createExpense(expense: Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>): Promise<Expense> {
-    const { data, error } = await supabase
-      .from('expenses')
-      .insert([{
-        description: expense.description,
-        amount: expense.amount,
-        due_date: expense.dueDate,
-        paid_date: expense.paidDate,
-        status: expense.status,
-        category_id: expense.categoryId,
-        payment_method_id: expense.paymentMethodId,
-        bank_account_id: expense.bankAccountId,
-        is_recurrent: expense.recurrence.isRecurrent,
-        recurrence_config: expense.recurrence,
-        supplier_name: expense.supplierName,
-        invoice_number: expense.invoiceNumber,
-        notes: expense.notes,
-        tags: expense.tags,
-        attachments: expense.attachments
-      }])
-      .select(`
-        *,
-        category:financial_categories(*),
-        payment_method:payment_methods(*),
-        bank_account:bank_accounts(*)
-      `)
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('expenses')
+        .insert([{
+          description: expense.description,
+          amount: expense.amount,
+          due_date: expense.dueDate,
+          paid_date: expense.paidDate,
+          status: expense.status,
+          category_id: expense.categoryId,
+          payment_method_id: expense.paymentMethodId,
+          bank_account_id: expense.bankAccountId,
+          is_recurrent: expense.recurrence.isRecurrent,
+          recurrence_config: expense.recurrence,
+          supplier_name: expense.supplierName,
+          invoice_number: expense.invoiceNumber,
+          notes: expense.notes,
+          tags: expense.tags,
+          attachments: expense.attachments
+        }])
+        .select(`
+          *,
+          category:financial_categories(*),
+          payment_method:payment_methods(*),
+          bank_account:bank_accounts(*)
+        `)
+        .single();
 
-    if (error) throw error;
-    return this.mapExpenseFromDB(data);
+      if (error) throw error;
+
+      // Invalida cache de despesas
+      financialCacheService.invalidateExpensesCache();
+
+      return this.mapExpenseFromDB(data);
+    } catch (error) {
+      console.error('Erro ao criar despesa:', error);
+      throw new Error('Falha ao criar despesa');
+    }
   }
 
   async updateExpense(id: string, updates: Partial<Expense>): Promise<Expense> {
-    const { data, error } = await supabase
-      .from('expenses')
-      .update({
-        description: updates.description,
-        amount: updates.amount,
-        due_date: updates.dueDate,
-        paid_date: updates.paidDate,
-        status: updates.status,
-        category_id: updates.categoryId,
-        payment_method_id: updates.paymentMethodId,
-        bank_account_id: updates.bankAccountId,
-        is_recurrent: updates.recurrence?.isRecurrent,
-        recurrence_config: updates.recurrence,
-        supplier_name: updates.supplierName,
-        invoice_number: updates.invoiceNumber,
-        notes: updates.notes,
-        tags: updates.tags,
-        attachments: updates.attachments
-      })
-      .eq('id', id)
-      .select(`
-        *,
-        category:financial_categories(*),
-        payment_method:payment_methods(*),
-        bank_account:bank_accounts(*)
-      `)
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('expenses')
+        .update({
+          description: updates.description,
+          amount: updates.amount,
+          due_date: updates.dueDate,
+          paid_date: updates.paidDate,
+          status: updates.status,
+          category_id: updates.categoryId,
+          payment_method_id: updates.paymentMethodId,
+          bank_account_id: updates.bankAccountId,
+          recurrence_config: updates.recurrence,
+          is_recurrent: updates.recurrence?.isRecurrent,
+          supplier_name: updates.supplierName,
+          invoice_number: updates.invoiceNumber,
+          notes: updates.notes,
+          tags: updates.tags,
+          attachments: updates.attachments,
+          updated_at: new Date().toISOString(),
+          updated_by: updates.updatedBy
+        })
+        .eq('id', id)
+        .select(`
+          *,
+          category:financial_categories(*),
+          payment_method:payment_methods(*),
+          bank_account:bank_accounts(*)
+        `)
+        .single();
 
-    if (error) throw error;
-    return this.mapExpenseFromDB(data);
+      if (error) throw error;
+
+      // Invalida cache de despesas
+      financialCacheService.invalidateExpensesCache();
+
+      return this.mapExpenseFromDB(data);
+    } catch (error) {
+      console.error('Erro ao atualizar despesa:', error);
+      throw new Error('Falha ao atualizar despesa');
+    }
+  }
+
+  async deleteExpense(id: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('expenses')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      // Invalida cache de despesas
+      financialCacheService.invalidateExpensesCache();
+    } catch (error) {
+      console.error('Erro ao deletar despesa:', error);
+      throw new Error('Falha ao deletar despesa');
+    }
   }
 
   // ==================== ESTATÍSTICAS ====================

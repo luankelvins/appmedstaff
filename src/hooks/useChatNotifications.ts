@@ -13,37 +13,74 @@ interface ChatNotificationState {
 // Simulação de chatManager para subscrição (já que não está exportado)
 class ChatNotificationManager {
   private listeners: ((event: WebSocketEvent) => void)[] = []
+  private messageCount = 0
 
   subscribe(callback: (event: WebSocketEvent) => void) {
     this.listeners.push(callback)
     
+    // Simular algumas mensagens iniciais
+    setTimeout(() => {
+      this.simulateInitialMessages(callback)
+    }, 1000)
+    
     // Simular eventos de mensagem para demonstração
     const interval = setInterval(() => {
-      if (Math.random() > 0.8) { // 20% de chance de nova mensagem
-        const mockMessage: ChatMessage = {
-          id: `msg-${Date.now()}`,
-          content: 'Nova mensagem de teste',
-          senderId: 'user2',
-          channelId: 'channel1',
-          type: 'text',
-          timestamp: new Date().toISOString(),
-          readBy: []
-        }
-        
-        this.listeners.forEach(listener => {
-          listener({
-            type: 'message',
-            data: mockMessage,
-            timestamp: new Date().toISOString()
-          })
-        })
+      if (Math.random() > 0.9) { // 10% de chance de nova mensagem
+        this.simulateNewMessage(callback)
       }
-    }, 10000) // A cada 10 segundos
+    }, 15000) // A cada 15 segundos
 
     return () => {
       this.listeners = this.listeners.filter(l => l !== callback)
       clearInterval(interval)
     }
+  }
+
+  private simulateInitialMessages(callback: (event: WebSocketEvent) => void) {
+    const messages = [
+      'Reunião de equipe às 14h hoje',
+      'Novo protocolo de atendimento disponível',
+      'Lembrete: Preencher relatório semanal'
+    ]
+
+    messages.forEach((content, index) => {
+      setTimeout(() => {
+        const mockMessage: ChatMessage = {
+          id: `msg-${Date.now()}-${index}`,
+          content,
+          senderId: `user-${index + 1}`,
+          channelId: 'general',
+          type: 'text',
+          timestamp: new Date(Date.now() - (messages.length - index) * 3600000).toISOString(),
+          readBy: []
+        }
+        
+        callback({
+          type: 'message',
+          data: mockMessage,
+          timestamp: new Date().toISOString()
+        })
+      }, index * 500)
+    })
+  }
+
+  private simulateNewMessage(callback: (event: WebSocketEvent) => void) {
+    this.messageCount++
+    const mockMessage: ChatMessage = {
+      id: `msg-${Date.now()}-${this.messageCount}`,
+      content: `Nova mensagem ${this.messageCount}`,
+      senderId: 'user-system',
+      channelId: 'general',
+      type: 'text',
+      timestamp: new Date().toISOString(),
+      readBy: []
+    }
+    
+    callback({
+      type: 'message',
+      data: mockMessage,
+      timestamp: new Date().toISOString()
+    })
   }
 }
 

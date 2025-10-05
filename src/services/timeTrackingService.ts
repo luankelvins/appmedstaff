@@ -621,44 +621,70 @@ class TimeTrackingService {
 
   private getMockTimeEntries(): TimeEntry[] {
     const today = new Date().toISOString().split('T')[0]
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0]
+    
     return [
+      // Entrada de hoje - apenas clock-in, sem clock-out (simulando que está trabalhando)
       {
-        id: 'entry_1',
+        id: 'entry_today',
         employeeId: 'emp_1',
         employeeName: 'João Silva',
         date: today,
         scheduleId: 'schedule_1',
         clockIn: {
-          id: 'clock_in_1',
+          id: 'clock_in_today',
           timestamp: `${today}T08:05:00Z`,
           type: 'clock_in',
           ipAddress: '192.168.1.100',
           isManual: false
         },
+        // Sem clockOut - indica que está trabalhando
+        breaks: [],
+        status: 'incomplete',
+        totalWorkedMinutes: 0,
+        expectedWorkedMinutes: 480,
+        overtimeMinutes: 0,
+        createdAt: `${today}T08:05:00Z`,
+        updatedAt: `${today}T08:05:00Z`
+      },
+      // Entrada de ontem - completa
+      {
+        id: 'entry_yesterday',
+        employeeId: 'emp_1',
+        employeeName: 'João Silva',
+        date: yesterday,
+        scheduleId: 'schedule_1',
+        clockIn: {
+          id: 'clock_in_yesterday',
+          timestamp: `${yesterday}T08:00:00Z`,
+          type: 'clock_in',
+          ipAddress: '192.168.1.100',
+          isManual: false
+        },
         clockOut: {
-          id: 'clock_out_1',
-          timestamp: `${today}T18:10:00Z`,
+          id: 'clock_out_yesterday',
+          timestamp: `${yesterday}T18:00:00Z`,
           type: 'clock_out',
           ipAddress: '192.168.1.100',
           isManual: false
         },
         breaks: [
           {
-            id: 'break_1',
+            id: 'break_yesterday',
             breakConfigId: 'lunch',
-            startTime: `${today}T12:00:00Z`,
-            endTime: `${today}T13:00:00Z`,
+            startTime: `${yesterday}T12:00:00Z`,
+            endTime: `${yesterday}T13:00:00Z`,
             duration: 60,
             type: 'lunch',
             isComplete: true
           }
         ],
         status: 'approved',
-        totalWorkedMinutes: 485,
+        totalWorkedMinutes: 480,
         expectedWorkedMinutes: 480,
-        overtimeMinutes: 5,
-        createdAt: `${today}T08:05:00Z`,
-        updatedAt: `${today}T18:10:00Z`
+        overtimeMinutes: 0,
+        createdAt: `${yesterday}T08:00:00Z`,
+        updatedAt: `${yesterday}T18:00:00Z`
       }
     ]
   }

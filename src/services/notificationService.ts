@@ -67,6 +67,95 @@ const mockNotifications: Notification[] = [
     createdAt: new Date(Date.now() - 1800000).toISOString(),
     actionUrl: '/operational/invoices/12345',
     actionLabel: 'Verificar'
+  },
+  {
+    id: '6',
+    title: 'Reunião agendada',
+    message: 'Reunião com equipe de vendas agendada para amanhã às 14:00',
+    type: 'info',
+    category: 'task',
+    priority: 'medium',
+    read: false,
+    userId: 'user1',
+    createdAt: new Date(Date.now() - 5400000).toISOString(),
+    actionUrl: '/calendar/meeting/6',
+    actionLabel: 'Ver agenda'
+  },
+  {
+    id: '7',
+    title: 'Novo contrato assinado',
+    message: 'Contrato com Hospital São Lucas foi assinado - Valor: R$ 45.000,00',
+    type: 'success',
+    category: 'commercial',
+    priority: 'high',
+    read: false,
+    userId: 'user1',
+    createdAt: new Date(Date.now() - 9000000).toISOString(),
+    actionUrl: '/contracts/7',
+    actionLabel: 'Ver contrato'
+  },
+  {
+    id: '8',
+    title: 'Atualização do sistema',
+    message: 'Nova versão do sistema será instalada na madrugada',
+    type: 'warning',
+    category: 'system',
+    priority: 'medium',
+    read: true,
+    userId: 'user1',
+    createdAt: new Date(Date.now() - 10800000).toISOString(),
+    readAt: new Date(Date.now() - 9000000).toISOString()
+  },
+  {
+    id: '9',
+    title: 'Relatório mensal pronto',
+    message: 'Relatório de vendas de dezembro está disponível para download',
+    type: 'info',
+    category: 'operational',
+    priority: 'low',
+    read: false,
+    userId: 'user1',
+    createdAt: new Date(Date.now() - 14400000).toISOString(),
+    actionUrl: '/reports/monthly/12',
+    actionLabel: 'Baixar relatório'
+  },
+  {
+    id: '10',
+    title: 'Pagamento processado',
+    message: 'Pagamento de R$ 12.500,00 foi processado com sucesso',
+    type: 'success',
+    category: 'financial',
+    priority: 'medium',
+    read: true,
+    userId: 'user1',
+    createdAt: new Date(Date.now() - 18000000).toISOString(),
+    readAt: new Date(Date.now() - 16200000).toISOString()
+  },
+  {
+    id: '11',
+    title: 'Candidato para entrevista',
+    message: 'Novo candidato para vaga de Desenvolvedor agendou entrevista',
+    type: 'info',
+    category: 'hr',
+    priority: 'medium',
+    read: false,
+    userId: 'user1',
+    createdAt: new Date(Date.now() - 21600000).toISOString(),
+    actionUrl: '/hr/candidates/11',
+    actionLabel: 'Ver perfil'
+  },
+  {
+    id: '12',
+    title: 'Meta mensal atingida',
+    message: 'Parabéns! A meta de vendas de dezembro foi superada em 15%',
+    type: 'success',
+    category: 'commercial',
+    priority: 'high',
+    read: false,
+    userId: 'user1',
+    createdAt: new Date(Date.now() - 25200000).toISOString(),
+    actionUrl: '/dashboard/sales',
+    actionLabel: 'Ver dashboard'
   }
 ]
 

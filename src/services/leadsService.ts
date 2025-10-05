@@ -1,4 +1,5 @@
 import { LeadForm, LeadPipelineCard, LeadPipelineStage, ContactAttempt } from '../types/crm'
+import { supabase } from '../config/supabase'
 import leadDistributionService from './leadDistributionService'
 import { leadTaskService } from './leadTaskService'
 
@@ -23,169 +24,10 @@ export interface ContactLead {
 }
 
 class LeadsService {
-  private leads: LeadPipelineCard[] = []
   private subscribers: Array<(leads: LeadPipelineCard[]) => void> = []
 
   constructor() {
-    this.initializeMockData()
-  }
-
-  // Inicializa com dados mock unificados
-  private initializeMockData() {
-    this.leads = [
-      {
-        id: '1',
-        leadId: 'lead-1',
-        leadData: {
-          id: 'lead-1',
-          nome: 'Dr. João Silva',
-          telefone: '(11) 99999-9999',
-          email: 'joao.silva@clinica.com',
-          empresa: 'Clínica São João',
-          cargo: 'Diretor Médico',
-          cidade: 'São Paulo',
-          estado: 'SP',
-          produtosInteresse: ['consultoria-clinicas', 'pj-medstaff-15'],
-          origem: 'site',
-          status: 'novo',
-          dataCriacao: new Date().toISOString(),
-          criadoPor: 'sistema'
-        },
-        currentStage: 'novo_lead',
-        status: 'nao_definido',
-        responsavelAtual: '11',
-        dataDistribuicao: new Date(),
-        dataUltimaAtualizacao: new Date(),
-        tempoNoEstagio: 2,
-        tempoTotalPipeline: 2,
-        stageHistory: [
-          {
-            stage: 'novo_lead',
-            responsavel: '11',
-            dataInicio: new Date(),
-            observacoes: 'Lead criado automaticamente'
-          }
-        ],
-        contactAttempts: [],
-        tasks: [
-          {
-            id: 'task-1',
-            leadPipelineId: '1',
-            titulo: 'Contato inicial com lead',
-            descricao: 'Realizar primeiro contato com Dr. João Silva - Clínica São João',
-            tipo: 'contato_inicial',
-            status: 'pendente',
-            prioridade: 'alta',
-            responsavel: '11',
-            dataVencimento: new Date(Date.now() + 24 * 60 * 60 * 1000),
-            dataCriacao: new Date(),
-            tentativasRedistribuicao: 0,
-            maxTentativasRedistribuicao: 3,
-            notificacoes: []
-          }
-        ],
-        observacoes: 'Lead interessado em consultoria para abertura de clínica',
-        criadoPor: 'sistema',
-        dataCriacao: new Date()
-      },
-      {
-        id: '2',
-        leadId: 'lead-2',
-        leadData: {
-          id: 'lead-2',
-          nome: 'Dra. Maria Santos',
-          telefone: '(11) 88888-8888',
-          email: 'maria.santos@hospital.com',
-          empresa: 'Hospital Central',
-          cargo: 'Diretora Médica',
-          cidade: 'Rio de Janeiro',
-          estado: 'RJ',
-          produtosInteresse: ['dirpf', 'planejamento-financeiro-pf'],
-          origem: 'indicacao',
-          status: 'contatado',
-          dataCriacao: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-          criadoPor: 'sistema'
-        },
-        currentStage: 'ligacao_1',
-        status: 'qualificado',
-        responsavelAtual: '12',
-        dataDistribuicao: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-        dataUltimaAtualizacao: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-        tempoNoEstagio: 24,
-        tempoTotalPipeline: 72,
-        stageHistory: [
-          {
-            stage: 'novo_lead',
-            responsavel: '12',
-            dataInicio: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-            dataFim: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-            tempoNoEstagio: 24,
-            observacoes: 'Lead distribuído automaticamente'
-          },
-          {
-            stage: 'ligacao_1',
-            responsavel: '12',
-            dataInicio: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-            observacoes: 'Primeira tentativa de contato realizada'
-          }
-        ],
-        contactAttempts: [
-          {
-            id: 'contact-1',
-            leadPipelineId: '2',
-            tipo: 'ligacao',
-            resultado: 'sem_resposta',
-            dataContato: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-            responsavel: '12',
-            duracao: 0,
-            observacoes: 'Ligação não atendida, deixado recado'
-          }
-        ],
-        tasks: [],
-        observacoes: 'Lead interessado em planejamento financeiro',
-        criadoPor: 'sistema',
-        dataCriacao: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000)
-      },
-      {
-        id: '3',
-        leadId: 'lead-3',
-        leadData: {
-          id: 'lead-3',
-          nome: 'Dr. Carlos Oliveira',
-          telefone: '(11) 77777-7777',
-          email: 'carlos.oliveira@email.com',
-          empresa: 'Consultório Médico',
-          cargo: 'Médico',
-          cidade: 'São Paulo',
-          estado: 'SP',
-          produtosInteresse: ['consultoria-clinicas'],
-          origem: 'indicacao',
-          status: 'novo',
-          dataCriacao: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-          criadoPor: 'sistema'
-        },
-        currentStage: 'novo_lead',
-        status: 'nao_qualificado',
-        responsavelAtual: '11',
-        dataDistribuicao: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-        dataUltimaAtualizacao: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-        tempoNoEstagio: 24,
-        tempoTotalPipeline: 24,
-        stageHistory: [
-          {
-            stage: 'novo_lead',
-            responsavel: '11',
-            dataInicio: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-            observacoes: 'Lead criado por indicação'
-          }
-        ],
-        contactAttempts: [],
-        tasks: [],
-        observacoes: 'Lead indicado por cliente existente',
-        criadoPor: 'sistema',
-        dataCriacao: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000)
-      }
-    ]
+    // Não precisamos mais inicializar dados mockados
   }
 
   // Subscrever para mudanças nos leads
@@ -198,42 +40,141 @@ class LeadsService {
 
   // Notificar subscribers sobre mudanças
   private notifySubscribers() {
-    this.subscribers.forEach(callback => callback([...this.leads]))
-  }
-
-  // Obter todos os leads
-  getAllLeads(): LeadPipelineCard[] {
-    return [...this.leads]
-  }
-
-  // Obter leads formatados para a aba Contatos
-  getContactLeads(): ContactLead[] {
-    return this.leads.map(lead => {
-      const lastContactDate = lead.contactAttempts.length > 0 
-        ? new Date(Math.max(...lead.contactAttempts.map(c => new Date(c.dataContato).getTime())))
-        : undefined;
-      
-      return {
-        id: lead.id,
-        name: lead.leadData.nome,
-        email: lead.leadData.email || '',
-        phone: lead.leadData.telefone,
-        type: 'lead' as const,
-        company: lead.leadData.empresa,
-        position: lead.leadData.cargo,
-        city: lead.leadData.cidade,
-        state: lead.leadData.estado,
-        status: this.mapPipelineStatusToContactStatus(lead.status),
-        createdAt: lead.dataCriacao,
-        lastContact: lastContactDate,
-        dataUltimoContato: lastContactDate,
-        notes: lead.observacoes,
-        pipelineStage: lead.currentStage,
-        motivoDesqualificacao: lead.status === 'nao_qualificado'
-          ? lead.outcome?.motivo || 'Não informado'
-          : undefined
-      }
+    this.getAllLeads().then(leads => {
+      this.subscribers.forEach(callback => callback(leads))
     })
+  }
+
+  // Buscar todos os leads do banco de dados
+  async getAllLeads(): Promise<LeadPipelineCard[]> {
+    try {
+      const { data: leads, error } = await supabase
+        .from('leads')
+        .select(`
+          *,
+          tasks:tasks(*)
+        `)
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('Erro ao buscar leads:', error)
+        return []
+      }
+
+      return leads.map(lead => this.mapDatabaseLeadToPipelineCard(lead))
+    } catch (error) {
+      console.error('Erro ao buscar leads:', error)
+      return []
+    }
+  }
+
+  // Mapear dados do banco para o formato LeadPipelineCard
+  private mapDatabaseLeadToPipelineCard(dbLead: any): LeadPipelineCard {
+    return {
+      id: dbLead.id,
+      leadId: dbLead.id,
+      leadData: {
+        id: dbLead.id,
+        nome: dbLead.name,
+        telefone: dbLead.phone,
+        email: dbLead.email,
+        empresa: dbLead.company || '',
+        cargo: dbLead.position || '',
+        cidade: dbLead.city || '',
+        estado: dbLead.state || '',
+        produtosInteresse: dbLead.products_interest || [],
+        origem: dbLead.source || 'site',
+        status: dbLead.status || 'novo',
+        dataCriacao: dbLead.created_at,
+        criadoPor: dbLead.created_by || 'sistema'
+      },
+      currentStage: (dbLead.pipeline_stage || 'novo_lead') as LeadPipelineStage,
+      status: dbLead.qualification_status || 'nao_definido',
+      responsavelAtual: dbLead.assigned_to,
+      dataDistribuicao: new Date(dbLead.assigned_at || dbLead.created_at),
+      dataUltimaAtualizacao: new Date(dbLead.updated_at),
+      tempoNoEstagio: this.calculateDaysInStage(dbLead.stage_changed_at || dbLead.created_at),
+      tempoTotalPipeline: this.calculateDaysInPipeline(dbLead.created_at),
+      stageHistory: this.parseStageHistory(dbLead.stage_history),
+      contactAttempts: this.parseContactAttempts(dbLead.contact_attempts),
+      tasks: dbLead.tasks || [],
+      observacoes: dbLead.notes || '',
+      criadoPor: dbLead.created_by || 'sistema',
+      dataCriacao: new Date(dbLead.created_at)
+    }
+  }
+
+  // Calcular dias no estágio atual
+  private calculateDaysInStage(stageChangedAt: string): number {
+    const now = new Date()
+    const stageDate = new Date(stageChangedAt)
+    const diffTime = Math.abs(now.getTime() - stageDate.getTime())
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+  }
+
+  // Calcular dias total no pipeline
+  private calculateDaysInPipeline(createdAt: string): number {
+    const now = new Date()
+    const createdDate = new Date(createdAt)
+    const diffTime = Math.abs(now.getTime() - createdDate.getTime())
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+  }
+
+  // Parse do histórico de estágios
+  private parseStageHistory(stageHistory: any): any[] {
+    if (!stageHistory) return []
+    try {
+      return Array.isArray(stageHistory) ? stageHistory : JSON.parse(stageHistory)
+    } catch {
+      return []
+    }
+  }
+
+  // Parse das tentativas de contato
+  private parseContactAttempts(contactAttempts: any): ContactAttempt[] {
+    if (!contactAttempts) return []
+    try {
+      return Array.isArray(contactAttempts) ? contactAttempts : JSON.parse(contactAttempts)
+    } catch {
+      return []
+    }
+  }
+
+  // Buscar leads para a aba de contatos
+  async getContactLeads(): Promise<ContactLead[]> {
+    try {
+      const { data: leads, error } = await supabase
+        .from('leads')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('Erro ao buscar leads para contatos:', error)
+        return []
+      }
+
+      return leads.map(lead => ({
+        id: lead.id,
+        name: lead.name,
+        email: lead.email,
+        phone: lead.phone,
+        type: 'lead' as const,
+        company: lead.company,
+        position: lead.position,
+        city: lead.city,
+        state: lead.state,
+        status: this.mapPipelineStatusToContactStatus(lead.qualification_status),
+        createdAt: new Date(lead.created_at),
+        lastContact: lead.last_contact_at ? new Date(lead.last_contact_at) : undefined,
+        dataUltimoContato: lead.last_contact_at ? new Date(lead.last_contact_at) : undefined,
+        notes: lead.notes,
+        pipelineStage: lead.pipeline_stage as LeadPipelineStage,
+        motivoDesqualificacao: lead.disqualification_reason
+      }))
+    } catch (error) {
+      console.error('Erro ao buscar leads para contatos:', error)
+      return []
+    }
   }
 
   // Mapear status do pipeline para status de contato
@@ -241,8 +182,7 @@ class LeadsService {
     switch (pipelineStatus) {
       case 'qualificado':
         return 'qualificado'
-      case 'nao_qualificado':
-      case 'perdido':
+      case 'desqualificado':
         return 'nao_qualificado'
       default:
         return 'nao_definido'
@@ -252,294 +192,424 @@ class LeadsService {
   // Criar novo lead
   async createLead(leadData: LeadForm): Promise<LeadPipelineCard> {
     try {
-      // Distribui o lead automaticamente
-      const distribuicao = leadDistributionService.distribuirLead(leadData)
-      
-      // Cria o card do pipeline
-      const newLeadCard: LeadPipelineCard = {
-        id: Date.now().toString(),
-        leadId: leadData.id || Date.now().toString(),
-        leadData,
-        currentStage: 'novo_lead',
-        status: 'nao_definido',
-        responsavelAtual: distribuicao.responsavelAtual,
-        dataDistribuicao: distribuicao.dataDistribuicao,
-        dataUltimaAtualizacao: new Date(),
-        tempoNoEstagio: 0,
-        tempoTotalPipeline: 0,
-        stageHistory: [
-          {
-            stage: 'novo_lead',
-            responsavel: distribuicao.responsavelAtual,
-            dataInicio: new Date(),
-            observacoes: 'Lead criado e distribuído automaticamente'
-          }
-        ],
-        contactAttempts: [],
-        tasks: [],
-        observacoes: leadData.observacoes,
-        criadoPor: 'usuario_atual',
-        dataCriacao: new Date()
+      const newLead = {
+        name: leadData.nome,
+        email: leadData.email,
+        phone: leadData.telefone,
+        company: leadData.empresa,
+        position: leadData.cargo,
+        city: leadData.cidade,
+        state: leadData.estado,
+        products_interest: leadData.produtosInteresse,
+        source: leadData.origem || 'site',
+        status: 'novo',
+        pipeline_stage: 'novo_lead',
+        qualification_status: 'nao_definido',
+        created_by: 'sistema',
+        stage_changed_at: new Date().toISOString(),
+        stage_history: JSON.stringify([{
+          stage: 'novo_lead',
+          responsavel: null,
+          dataInicio: new Date(),
+          observacoes: 'Lead criado automaticamente'
+        }]),
+        contact_attempts: JSON.stringify([])
       }
 
-      // Cria tarefa automática no banco de dados
-      const tarefa = await leadTaskService.criarTarefaAutomatica(
-        newLeadCard.id,
-        newLeadCard.responsavelAtual,
-        'initial_contact'
-      )
-      newLeadCard.tasks = [tarefa]
+      const { data: createdLead, error } = await supabase
+        .from('leads')
+        .insert(newLead)
+        .select()
+        .single()
 
-      this.leads.unshift(newLeadCard)
+      if (error) {
+        throw new Error(`Erro ao criar lead: ${error.message}`)
+      }
+
+      // Distribuir o lead automaticamente
+       const distribuicao = leadDistributionService.distribuirLead(createdLead)
+       if (distribuicao.responsavelAtual) {
+         await this.assignLeadToUser(createdLead.id, distribuicao.responsavelAtual)
+       }
+
+       // Criar tarefa inicial
+       await leadTaskService.criarTarefaAutomatica(createdLead.id, distribuicao.responsavelAtual)
+
+      const pipelineCard = this.mapDatabaseLeadToPipelineCard(createdLead)
       this.notifySubscribers()
       
-      return newLeadCard
+      return pipelineCard
     } catch (error) {
       console.error('Erro ao criar lead:', error)
       throw error
     }
   }
 
+  // Atribuir lead a um usuário
+  async assignLeadToUser(leadId: string, userId: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('leads')
+        .update({
+          assigned_to: userId,
+          assigned_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', leadId)
+
+      if (error) {
+        throw new Error(`Erro ao atribuir lead: ${error.message}`)
+      }
+
+      this.notifySubscribers()
+    } catch (error) {
+      console.error('Erro ao atribuir lead:', error)
+      throw error
+    }
+  }
+
   // Atualizar estágio do lead
-  updateLeadStage(leadId: string, newStage: LeadPipelineStage): void {
-    const leadIndex = this.leads.findIndex(lead => lead.id === leadId)
-    if (leadIndex === -1) return
+  async updateLeadStage(leadId: string, newStage: LeadPipelineStage): Promise<void> {
+    try {
+      // Buscar lead atual para obter histórico
+      const { data: currentLead, error: fetchError } = await supabase
+        .from('leads')
+        .select('stage_history, assigned_to')
+        .eq('id', leadId)
+        .single()
 
-    const lead = this.leads[leadIndex]
-    const now = new Date()
-    const currentStageHistory = lead.stageHistory.find(h => h.stage === lead.currentStage && !h.dataFim)
-    
-    if (currentStageHistory) {
-      currentStageHistory.dataFim = now
-      currentStageHistory.tempoNoEstagio = (now.getTime() - currentStageHistory.dataInicio.getTime()) / (1000 * 60 * 60)
+      if (fetchError) {
+        throw new Error(`Erro ao buscar lead: ${fetchError.message}`)
+      }
+
+      // Atualizar histórico de estágios
+      const currentHistory = this.parseStageHistory(currentLead.stage_history)
+      const newHistoryEntry = {
+        stage: newStage,
+        responsavel: currentLead.assigned_to,
+        dataInicio: new Date(),
+        observacoes: `Movido para ${newStage}`
+      }
+      const updatedHistory = [...currentHistory, newHistoryEntry]
+
+      const { error } = await supabase
+        .from('leads')
+        .update({
+          pipeline_stage: newStage,
+          stage_changed_at: new Date().toISOString(),
+          stage_history: JSON.stringify(updatedHistory),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', leadId)
+
+      if (error) {
+        throw new Error(`Erro ao atualizar estágio: ${error.message}`)
+      }
+
+      this.notifySubscribers()
+    } catch (error) {
+      console.error('Erro ao atualizar estágio do lead:', error)
+      throw error
     }
-
-    this.leads[leadIndex] = {
-      ...lead,
-      currentStage: newStage,
-      dataUltimaAtualizacao: now,
-      tempoNoEstagio: 0,
-      stageHistory: [
-        ...lead.stageHistory,
-        {
-          stage: newStage,
-          responsavel: lead.responsavelAtual,
-          dataInicio: now,
-          observacoes: `Movido para ${newStage}`
-        }
-      ]
-    }
-
-    this.notifySubscribers()
   }
 
   // Adicionar tentativa de contato
-  addContactAttempt(leadId: string, attempt: Omit<ContactAttempt, 'id' | 'leadPipelineId'>): void {
-    const leadIndex = this.leads.findIndex(lead => lead.id === leadId)
-    if (leadIndex === -1) return
+  async addContactAttempt(leadId: string, attempt: Omit<ContactAttempt, 'id' | 'leadPipelineId'>): Promise<void> {
+    try {
+      // Buscar tentativas atuais
+      const { data: currentLead, error: fetchError } = await supabase
+        .from('leads')
+        .select('contact_attempts')
+        .eq('id', leadId)
+        .single()
 
-    const newAttempt: ContactAttempt = {
-      ...attempt,
-      id: Date.now().toString(),
-      leadPipelineId: leadId
+      if (fetchError) {
+        throw new Error(`Erro ao buscar lead: ${fetchError.message}`)
+      }
+
+      const currentAttempts = this.parseContactAttempts(currentLead.contact_attempts)
+      const newAttempt = {
+        ...attempt,
+        id: `attempt-${Date.now()}`,
+        leadPipelineId: leadId
+      }
+      const updatedAttempts = [...currentAttempts, newAttempt]
+
+      const { error } = await supabase
+        .from('leads')
+        .update({
+          contact_attempts: JSON.stringify(updatedAttempts),
+          last_contact_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', leadId)
+
+      if (error) {
+        throw new Error(`Erro ao adicionar tentativa de contato: ${error.message}`)
+      }
+
+      this.notifySubscribers()
+    } catch (error) {
+      console.error('Erro ao adicionar tentativa de contato:', error)
+      throw error
     }
-
-    this.leads[leadIndex] = {
-      ...this.leads[leadIndex],
-      contactAttempts: [...this.leads[leadIndex].contactAttempts, newAttempt],
-      dataUltimaAtualizacao: new Date()
-    }
-
-    this.notifySubscribers()
   }
 
   // Completar tarefa
-  completeTask(taskId: string): void {
-    this.leads = this.leads.map(lead => ({
-      ...lead,
-      tasks: lead.tasks.map(task => 
-        task.id === taskId 
-          ? { ...task, status: 'concluida' as const, dataConclusao: new Date() }
-          : task
-      )
-    }))
-    
-    this.notifySubscribers()
-  }
+  async completeTask(taskId: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({
+          status: 'concluida',
+          completed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', taskId)
 
-  // Qualificar lead - criar cards para pipelines selecionados
-  qualifyLead(leadId: string, selectedPipelines: string[]): void {
-    const lead = this.getLeadById(leadId)
-    if (!lead) {
-      throw new Error('Lead não encontrado')
-    }
-
-    // Atualizar status do lead original para qualificado
-    this.leads = this.leads.map(l => 
-      l.id === leadId 
-        ? {
-            ...l,
-            status: 'qualificado' as const,
-            currentStage: 'desfecho',
-            dataUltimaAtualizacao: new Date(),
-            observacoes: `${l.observacoes || ''}\n\nLead qualificado em ${new Date().toLocaleDateString()} para os pipelines: ${selectedPipelines.join(', ')}`,
-            outcome: {
-              qualificacao: 'qualificado' as const,
-              motivo: `Qualificado para pipelines: ${selectedPipelines.join(', ')}`,
-              dataDesfecho: new Date(),
-              responsavelDesfecho: l.responsavelAtual
-            }
-          }
-        : l
-    )
-
-    // Criar novos cards para cada pipeline selecionado
-    selectedPipelines.forEach(pipelineId => {
-      const newLeadCard: LeadPipelineCard = {
-        id: `${leadId}-${pipelineId}-${Date.now()}`,
-        leadId: `${lead.leadId}-${pipelineId}`,
-        leadData: {
-          ...lead.leadData,
-          id: `${lead.leadData.id}-${pipelineId}`,
-          status: 'qualificado'
-        },
-        currentStage: 'novo_lead',
-        status: 'nao_definido',
-        responsavelAtual: lead.responsavelAtual,
-        dataDistribuicao: new Date(),
-        dataUltimaAtualizacao: new Date(),
-        tempoNoEstagio: 0,
-        tempoTotalPipeline: 0,
-        stageHistory: [
-          {
-            stage: 'novo_lead',
-            responsavel: lead.responsavelAtual,
-            dataInicio: new Date(),
-            observacoes: `Lead qualificado do pipeline original (${leadId}) para ${pipelineId}`
-          }
-        ],
-        contactAttempts: [],
-        tasks: [
-          {
-            id: `task-${Date.now()}-${pipelineId}`,
-            leadPipelineId: `${leadId}-${pipelineId}-${Date.now()}`,
-            titulo: `Contato inicial - Pipeline ${pipelineId.toUpperCase()}`,
-            descricao: `Realizar primeiro contato para ${pipelineId} com ${lead.leadData.nome}`,
-            tipo: 'contato_inicial',
-            status: 'pendente',
-            prioridade: 'alta',
-            responsavel: lead.responsavelAtual,
-            dataVencimento: new Date(Date.now() + 24 * 60 * 60 * 1000),
-            dataCriacao: new Date(),
-            tentativasRedistribuicao: 0,
-            maxTentativasRedistribuicao: 3,
-            notificacoes: []
-          }
-        ],
-        observacoes: `Lead qualificado do pipeline original para ${pipelineId}`,
-        criadoPor: 'sistema-qualificacao',
-        dataCriacao: new Date()
+      if (error) {
+        throw new Error(`Erro ao completar tarefa: ${error.message}`)
       }
 
-      this.leads.push(newLeadCard)
-    })
+      this.notifySubscribers()
+    } catch (error) {
+      console.error('Erro ao completar tarefa:', error)
+      throw error
+    }
+  }
 
-    this.notifySubscribers()
+  // Qualificar lead
+  async qualifyLead(leadId: string, selectedPipelines: string[]): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('leads')
+        .update({
+          qualification_status: 'qualificado',
+          selected_pipelines: selectedPipelines,
+          qualified_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', leadId)
+
+      if (error) {
+        throw new Error(`Erro ao qualificar lead: ${error.message}`)
+      }
+
+      this.notifySubscribers()
+    } catch (error) {
+      console.error('Erro ao qualificar lead:', error)
+      throw error
+    }
   }
 
   // Desqualificar lead
-  disqualifyLead(leadId: string, reason: string, customReason?: string): void {
-    const lead = this.getLeadById(leadId)
-    if (!lead) {
-      throw new Error('Lead não encontrado')
+  async disqualifyLead(leadId: string, reason: string, customReason?: string): Promise<void> {
+    try {
+      const disqualificationReason = reason === 'outro' ? customReason : reason
+
+      const { error } = await supabase
+        .from('leads')
+        .update({
+          qualification_status: 'desqualificado',
+          disqualification_reason: disqualificationReason,
+          disqualified_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', leadId)
+
+      if (error) {
+        throw new Error(`Erro ao desqualificar lead: ${error.message}`)
+      }
+
+      this.notifySubscribers()
+    } catch (error) {
+      console.error('Erro ao desqualificar lead:', error)
+      throw error
     }
-
-    const finalReason = customReason || reason
-    const now = new Date()
-
-    this.leads = this.leads.map(l => 
-      l.id === leadId 
-        ? {
-            ...l,
-            status: 'nao_qualificado' as const,
-            currentStage: 'desfecho',
-            dataUltimaAtualizacao: now,
-            observacoes: `${l.observacoes || ''}\n\nLead desqualificado em ${now.toLocaleDateString()}\nMotivo: ${finalReason}`,
-            stageHistory: [
-              ...l.stageHistory,
-              {
-                stage: 'desfecho',
-                responsavel: l.responsavelAtual,
-                dataInicio: now,
-                observacoes: `Desqualificado - ${finalReason}`
-              }
-            ]
-          }
-        : l
-    )
-
-    this.notifySubscribers()
   }
 
-  // Obter lead por ID
-  getLeadById(leadId: string): LeadPipelineCard | undefined {
-    return this.leads.find(lead => lead.id === leadId)
+  // Buscar lead por ID
+  async getLeadById(leadId: string): Promise<LeadPipelineCard | undefined> {
+    try {
+      const { data: lead, error } = await supabase
+        .from('leads')
+        .select(`
+          *,
+          tasks:tasks(*)
+        `)
+        .eq('id', leadId)
+        .single()
+
+      if (error) {
+        console.error('Erro ao buscar lead por ID:', error)
+        return undefined
+      }
+
+      return this.mapDatabaseLeadToPipelineCard(lead)
+    } catch (error) {
+      console.error('Erro ao buscar lead por ID:', error)
+      return undefined
+    }
   }
 
-  // Buscar leads por pipeline (usando observações para identificar pipeline)
-  getLeadsByPipeline(pipeline: string): LeadPipelineCard[] {
-    return this.leads.filter(lead => 
-      lead.observacoes?.includes(`pipeline original para ${pipeline}`) || 
-      lead.observacoes?.includes(`Pipeline ${pipeline.toUpperCase()}`)
-    )
+  // Buscar leads por pipeline
+  async getLeadsByPipeline(pipeline: string): Promise<LeadPipelineCard[]> {
+    try {
+      const { data: leads, error } = await supabase
+        .from('leads')
+        .select(`
+          *,
+          tasks:tasks(*)
+        `)
+        .eq('pipeline_stage', pipeline)
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('Erro ao buscar leads por pipeline:', error)
+        return []
+      }
+
+      return leads.map(lead => this.mapDatabaseLeadToPipelineCard(lead))
+    } catch (error) {
+      console.error('Erro ao buscar leads por pipeline:', error)
+      return []
+    }
   }
 
   // Buscar leads qualificados
-  getQualifiedLeads(): LeadPipelineCard[] {
-    return this.leads.filter(lead => lead.status === 'qualificado')
+  async getQualifiedLeads(): Promise<LeadPipelineCard[]> {
+    try {
+      const { data: leads, error } = await supabase
+        .from('leads')
+        .select(`
+          *,
+          tasks:tasks(*)
+        `)
+        .eq('qualification_status', 'qualificado')
+        .order('qualified_at', { ascending: false })
+
+      if (error) {
+        console.error('Erro ao buscar leads qualificados:', error)
+        return []
+      }
+
+      return leads.map(lead => this.mapDatabaseLeadToPipelineCard(lead))
+    } catch (error) {
+      console.error('Erro ao buscar leads qualificados:', error)
+      return []
+    }
   }
 
   // Buscar leads desqualificados
-  getDisqualifiedLeads(): LeadPipelineCard[] {
-    return this.leads.filter(lead => lead.status === 'nao_qualificado')
+  async getDisqualifiedLeads(): Promise<LeadPipelineCard[]> {
+    try {
+      const { data: leads, error } = await supabase
+        .from('leads')
+        .select(`
+          *,
+          tasks:tasks(*)
+        `)
+        .eq('qualification_status', 'desqualificado')
+        .order('disqualified_at', { ascending: false })
+
+      if (error) {
+        console.error('Erro ao buscar leads desqualificados:', error)
+        return []
+      }
+
+      return leads.map(lead => this.mapDatabaseLeadToPipelineCard(lead))
+    } catch (error) {
+      console.error('Erro ao buscar leads desqualificados:', error)
+      return []
+    }
   }
 
-  // Obter estatísticas de motivos de desqualificação
-  getDisqualificationStats(): Record<string, number> {
-    const disqualifiedLeads = this.getDisqualifiedLeads()
-    const stats: Record<string, number> = {}
-    
-    disqualifiedLeads.forEach(lead => {
-      const motivo = lead.outcome?.motivo || 'Não informado'
-      stats[motivo] = (stats[motivo] || 0) + 1
-    })
-    
-    return stats
+  // Estatísticas de desqualificação
+  async getDisqualificationStats(): Promise<Record<string, number>> {
+    try {
+      const { data: leads, error } = await supabase
+        .from('leads')
+        .select('disqualification_reason')
+        .eq('qualification_status', 'desqualificado')
+        .not('disqualification_reason', 'is', null)
+
+      if (error) {
+        console.error('Erro ao buscar estatísticas de desqualificação:', error)
+        return {}
+      }
+
+      const stats: Record<string, number> = {}
+      leads.forEach(lead => {
+        const reason = lead.disqualification_reason
+        if (reason) {
+          stats[reason] = (stats[reason] || 0) + 1
+        }
+      })
+
+      return stats
+    } catch (error) {
+      console.error('Erro ao buscar estatísticas de desqualificação:', error)
+      return {}
+    }
   }
 
-  // Obter leads desqualificados por período
-  getDisqualifiedLeadsByPeriod(startDate: Date, endDate: Date): LeadPipelineCard[] {
-    return this.getDisqualifiedLeads().filter(lead => {
-      if (!lead.outcome?.dataDesfecho) return false
-      const desfechoDate = new Date(lead.outcome.dataDesfecho)
-      return desfechoDate >= startDate && desfechoDate <= endDate
-    })
+  // Buscar leads desqualificados por período
+  async getDisqualifiedLeadsByPeriod(startDate: Date, endDate: Date): Promise<LeadPipelineCard[]> {
+    try {
+      const { data: leads, error } = await supabase
+        .from('leads')
+        .select(`
+          *,
+          tasks:tasks(*)
+        `)
+        .eq('qualification_status', 'desqualificado')
+        .gte('disqualified_at', startDate.toISOString())
+        .lte('disqualified_at', endDate.toISOString())
+        .order('disqualified_at', { ascending: false })
+
+      if (error) {
+        console.error('Erro ao buscar leads desqualificados por período:', error)
+        return []
+      }
+
+      return leads.map(lead => this.mapDatabaseLeadToPipelineCard(lead))
+    } catch (error) {
+      console.error('Erro ao buscar leads desqualificados por período:', error)
+      return []
+    }
   }
 
-  // Obter estatísticas de motivos por período
-  getDisqualificationStatsByPeriod(startDate: Date, endDate: Date): Record<string, number> {
-    const disqualifiedLeads = this.getDisqualifiedLeadsByPeriod(startDate, endDate)
-    const stats: Record<string, number> = {}
-    
-    disqualifiedLeads.forEach(lead => {
-      const motivo = lead.outcome?.motivo || 'Não informado'
-      stats[motivo] = (stats[motivo] || 0) + 1
-    })
-    
-    return stats
+  // Estatísticas de desqualificação por período
+  async getDisqualificationStatsByPeriod(startDate: Date, endDate: Date): Promise<Record<string, number>> {
+    try {
+      const { data: leads, error } = await supabase
+        .from('leads')
+        .select('disqualification_reason')
+        .eq('qualification_status', 'desqualificado')
+        .gte('disqualified_at', startDate.toISOString())
+        .lte('disqualified_at', endDate.toISOString())
+        .not('disqualification_reason', 'is', null)
+
+      if (error) {
+        console.error('Erro ao buscar estatísticas de desqualificação por período:', error)
+        return {}
+      }
+
+      const stats: Record<string, number> = {}
+      leads.forEach(lead => {
+        const reason = lead.disqualification_reason
+        if (reason) {
+          stats[reason] = (stats[reason] || 0) + 1
+        }
+      })
+
+      return stats
+    } catch (error) {
+      console.error('Erro ao buscar estatísticas de desqualificação por período:', error)
+      return {}
+    }
   }
 }
 
-// Instância singleton
 const leadsService = new LeadsService()
 export default leadsService

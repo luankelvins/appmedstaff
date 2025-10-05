@@ -16,6 +16,8 @@ import {
   Users
 } from 'lucide-react'
 import DashboardWidget from '../DashboardWidget'
+import { financialService } from '../../../services/financialService'
+import { Revenue, Expense, FinancialCategory } from '../../../types/financial'
 
 interface BaseWidgetProps {
   onRefresh?: () => void
@@ -83,158 +85,137 @@ const FinancialAnalyticsWidget: React.FC<BaseWidgetProps> = ({
     setError(undefined)
     
     try {
-      // Simulação de dados - em produção, viria de uma API
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      const mockMetrics: FinancialMetric[] = [
+      // Carregar dados reais do financialService
+      const [revenuesData, expensesData, categoriesData] = await Promise.all([
+        financialService.getRevenues(),
+        financialService.getExpenses(),
+        financialService.getCategories()
+      ])
+
+      // Calcular métricas baseadas nos dados reais
+      const totalRevenue = revenuesData.reduce((sum: number, revenue: Revenue) => sum + revenue.amount, 0)
+      const totalExpenses = expensesData.reduce((sum: number, expense: Expense) => sum + expense.amount, 0)
+      const netIncome = totalRevenue - totalExpenses
+      const margin = totalRevenue > 0 ? (netIncome / totalRevenue) * 100 : 0
+
+      // Para simplificar, vamos usar valores anteriores simulados (em produção, seria histórico real)
+      const previousRevenue = totalRevenue * 0.95
+      const previousExpenses = totalExpenses * 1.05
+      const previousNetIncome = previousRevenue - previousExpenses
+
+      const revenueChange = totalRevenue - previousRevenue
+      const expenseChange = totalExpenses - previousExpenses
+      const netIncomeChange = netIncome - previousNetIncome
+
+      const calculatedMetrics: FinancialMetric[] = [
         {
           id: 'revenue',
           name: 'Receita Total',
-          value: 125000,
-          previousValue: 118000,
-          change: 7000,
-          changePercentage: 5.93,
-          trend: 'up',
-          target: 130000,
+          value: totalRevenue,
+          previousValue: previousRevenue,
+          change: revenueChange,
+          changePercentage: previousRevenue > 0 ? (revenueChange / previousRevenue) * 100 : 0,
+          trend: revenueChange > 0 ? 'up' : revenueChange < 0 ? 'down' : 'stable',
+          target: totalRevenue * 1.1,
           format: 'currency'
         },
         {
           id: 'expenses',
           name: 'Despesas Totais',
-          value: 87500,
-          previousValue: 92000,
-          change: -4500,
-          changePercentage: -4.89,
-          trend: 'down',
+          value: totalExpenses,
+          previousValue: previousExpenses,
+          change: expenseChange,
+          changePercentage: previousExpenses > 0 ? (expenseChange / previousExpenses) * 100 : 0,
+          trend: expenseChange < 0 ? 'up' : expenseChange > 0 ? 'down' : 'stable',
           format: 'currency'
         },
         {
           id: 'profit',
           name: 'Lucro Líquido',
-          value: 37500,
-          previousValue: 26000,
-          change: 11500,
-          changePercentage: 44.23,
-          trend: 'up',
-          target: 40000,
+          value: netIncome,
+          previousValue: previousNetIncome,
+          change: netIncomeChange,
+          changePercentage: previousNetIncome > 0 ? (netIncomeChange / previousNetIncome) * 100 : 0,
+          trend: netIncomeChange > 0 ? 'up' : netIncomeChange < 0 ? 'down' : 'stable',
+          target: totalRevenue * 0.3,
           format: 'currency'
         },
         {
           id: 'margin',
           name: 'Margem de Lucro',
-          value: 30,
-          previousValue: 22,
-          change: 8,
-          changePercentage: 36.36,
-          trend: 'up',
+          value: margin,
+          previousValue: previousNetIncome > 0 ? (previousNetIncome / previousRevenue) * 100 : 0,
+          change: margin - (previousNetIncome > 0 ? (previousNetIncome / previousRevenue) * 100 : 0),
+          changePercentage: 0,
+          trend: margin > (previousNetIncome > 0 ? (previousNetIncome / previousRevenue) * 100 : 0) ? 'up' : 'down',
           target: 35,
           format: 'percentage'
         }
       ]
 
-      const mockExpenses: ExpenseCategory[] = [
-        {
-          id: 'salaries',
-          name: 'Salários',
-          amount: 45000,
-          percentage: 51.4,
-          color: '#3B82F6',
-          change: -2.1
-        },
-        {
-          id: 'infrastructure',
-          name: 'Infraestrutura',
-          amount: 18000,
-          percentage: 20.6,
-          color: '#10B981',
-          change: 1.5
-        },
-        {
-          id: 'marketing',
-          name: 'Marketing',
-          amount: 12000,
-          percentage: 13.7,
-          color: '#F59E0B',
-          change: -8.3
-        },
-        {
-          id: 'operations',
-          name: 'Operações',
-          amount: 8500,
-          percentage: 9.7,
-          color: '#EF4444',
-          change: 3.2
-        },
-        {
-          id: 'others',
-          name: 'Outros',
-          amount: 4000,
-          percentage: 4.6,
-          color: '#8B5CF6',
-          change: 0.8
-        }
-      ]
+      // Agrupar despesas por categoria
+      const expensesByCategory = expensesData.reduce((acc: { [key: string]: number }, expense: Expense) => {
+        const category = categoriesData.find((cat: FinancialCategory) => cat.id === expense.categoryId)
+        const categoryName = category?.name || 'Outros'
+        acc[categoryName] = (acc[categoryName] || 0) + expense.amount
+        return acc
+      }, {})
 
-      const mockRevenues: RevenueSource[] = [
-        {
-          id: 'subscriptions',
-          name: 'Assinaturas',
-          amount: 75000,
-          percentage: 60,
-          growth: 8.5
-        },
-        {
-          id: 'consulting',
-          name: 'Consultoria',
-          amount: 30000,
-          percentage: 24,
-          growth: 12.3
-        },
-        {
-          id: 'training',
-          name: 'Treinamentos',
-          amount: 15000,
-          percentage: 12,
-          growth: -2.1
-        },
-        {
-          id: 'partnerships',
-          name: 'Parcerias',
-          amount: 5000,
-          percentage: 4,
-          growth: 25.0
-        }
-      ]
+      const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#84CC16']
+      const calculatedExpenses: ExpenseCategory[] = Object.entries(expensesByCategory).map(([name, amount], index) => ({
+        id: name.toLowerCase().replace(/\s+/g, '-'),
+        name,
+        amount: amount as number,
+        percentage: totalExpenses > 0 ? ((amount as number) / totalExpenses) * 100 : 0,
+        color: colors[index % colors.length],
+        change: Math.random() * 10 - 5 // Simulado para demonstração
+      }))
 
-      const mockAlerts: FinancialAlert[] = [
-        {
-          id: '1',
+      // Agrupar receitas por categoria
+      const revenuesByCategory = revenuesData.reduce((acc: { [key: string]: number }, revenue: Revenue) => {
+        const category = categoriesData.find((cat: FinancialCategory) => cat.id === revenue.categoryId)
+        const categoryName = category?.name || 'Outros'
+        acc[categoryName] = (acc[categoryName] || 0) + revenue.amount
+        return acc
+      }, {})
+
+      const calculatedRevenues: RevenueSource[] = Object.entries(revenuesByCategory).map(([name, amount]) => ({
+        id: name.toLowerCase().replace(/\s+/g, '-'),
+        name,
+        amount: amount as number,
+        percentage: totalRevenue > 0 ? ((amount as number) / totalRevenue) * 100 : 0,
+        growth: Math.random() * 20 - 5 // Simulado para demonstração
+      }))
+
+      // Gerar alertas baseados nos dados reais
+      const calculatedAlerts: FinancialAlert[] = []
+      
+      if (margin < 20) {
+        calculatedAlerts.push({
+          id: 'low-margin',
           type: 'target',
-          message: 'Meta de receita mensal quase atingida (96%)',
-          severity: 'medium',
-          value: 96
-        },
-        {
-          id: '2',
-          type: 'expense',
-          message: 'Gastos com marketing 15% acima do orçado',
+          message: `Margem de lucro baixa (${margin.toFixed(1)}%)`,
           severity: 'high',
-          value: 115
-        },
-        {
-          id: '3',
-          type: 'revenue',
-          message: 'Receita de treinamentos em declínio',
-          severity: 'medium'
-        }
-      ]
+          value: margin
+        })
+      }
 
-      setMetrics(mockMetrics)
-      setExpenses(mockExpenses)
-      setRevenues(mockRevenues)
-      setAlerts(mockAlerts)
+      if (totalExpenses > totalRevenue * 0.8) {
+        calculatedAlerts.push({
+          id: 'high-expenses',
+          type: 'expense',
+          message: 'Despesas representam mais de 80% da receita',
+          severity: 'medium'
+        })
+      }
+
+      setMetrics(calculatedMetrics)
+      setExpenses(calculatedExpenses)
+      setRevenues(calculatedRevenues)
+      setAlerts(calculatedAlerts)
     } catch (err) {
       setError('Erro ao carregar dados financeiros')
+      console.error('Erro ao carregar dados financeiros:', err)
     } finally {
       setLoading(false)
     }

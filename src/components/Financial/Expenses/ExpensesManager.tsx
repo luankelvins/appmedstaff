@@ -5,8 +5,13 @@ import {
   BankAccount, 
   PaymentMethod, 
   TransactionStatus,
-  RecurrenceConfig 
+  RecurrenceConfig,
+  FinancialFilter
 } from '../../../types/financial';
+import { financialService } from '../../../services/financialService';
+import { PaginationParams, PaginatedResponse } from '../../../services/paginationService';
+import Pagination from '../../Common/Pagination';
+import { AdvancedFilters } from '../../Common/AdvancedFilters';
 import { 
   DollarSign, 
   Calendar, 
@@ -41,6 +46,8 @@ const ExpensesManager: React.FC = () => {
   const [categories, setCategories] = useState<FinancialCategory[]>([]);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [formData, setFormData] = useState<LocalExpenseFormData>({
@@ -52,91 +59,122 @@ const ExpensesManager: React.FC = () => {
     dueDate: '',
     status: 'pending'
   });
-  const [filter, setFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<TransactionStatus | 'all'>('all');
+  
+  // Estados de paginação
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [paginationLoading, setPaginationLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  // Estado para filtros avançados
+  const [advancedFilter, setAdvancedFilter] = useState<FinancialFilter>({});
 
-  // Mock data
+  // Carregar dados reais
+  const loadFinancialData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const [expensesData, categoriesData, bankAccountsData, paymentMethodsData] = await Promise.all([
+        financialService.getExpenses(),
+        financialService.getCategories(),
+        financialService.getBankAccounts(),
+        financialService.getPaymentMethods()
+      ]);
+
+      setExpenses(expensesData);
+      setCategories(categoriesData.filter(cat => cat.type === 'expense'));
+      setBankAccounts(bankAccountsData);
+      setPaymentMethods(paymentMethodsData);
+    } catch (err) {
+      setError('Erro ao carregar dados financeiros');
+      console.error('Erro ao carregar dados:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    setCategories([
-      { id: '1', name: 'Escritório', type: 'expense', description: 'Despesas de escritório', color: '#3B82F6', isActive: true, createdAt: new Date(), updatedAt: new Date(), createdBy: 'admin', updatedBy: 'admin' },
-      { id: '2', name: 'Marketing', type: 'expense', description: 'Despesas de marketing', color: '#10B981', isActive: true, createdAt: new Date(), updatedAt: new Date(), createdBy: 'admin', updatedBy: 'admin' },
-      { id: '3', name: 'Tecnologia', type: 'expense', description: 'Despesas de TI', color: '#8B5CF6', isActive: true, createdAt: new Date(), updatedAt: new Date(), createdBy: 'admin', updatedBy: 'admin' }
-    ]);
-
-    setBankAccounts([
-      { id: '1', name: 'Conta Corrente Principal', accountNumber: '12345-6', agency: '0001', bank: 'Banco do Brasil', accountType: 'checking', balance: 50000, isActive: true, createdAt: new Date(), updatedAt: new Date(), createdBy: 'admin', updatedBy: 'admin' },
-      { id: '2', name: 'Conta Poupança', accountNumber: '78910-1', agency: '0002', bank: 'Itaú', accountType: 'savings', balance: 25000, isActive: true, createdAt: new Date(), updatedAt: new Date(), createdBy: 'admin', updatedBy: 'admin' }
-    ]);
-
-    setPaymentMethods([
-      { id: '1', name: 'Transferência Bancária', type: 'bank_transfer', isActive: true, createdAt: new Date(), updatedAt: new Date(), createdBy: 'admin', updatedBy: 'admin' },
-      { id: '2', name: 'Cartão de Crédito', type: 'credit_card', isActive: true, createdAt: new Date(), updatedAt: new Date(), createdBy: 'admin', updatedBy: 'admin' },
-      { id: '3', name: 'PIX', type: 'pix', isActive: true, createdAt: new Date(), updatedAt: new Date(), createdBy: 'admin', updatedBy: 'admin' }
-    ]);
-
-    setExpenses([
-      {
-        id: '1',
-        description: 'Material de escritório',
-        amount: 500,
-        categoryId: '1',
-        bankAccountId: '1',
-        paymentMethodId: '1',
-        dueDate: new Date('2024-01-15'),
-        paidDate: new Date('2024-01-14'),
-        status: 'confirmed' as TransactionStatus,
-        recurrence: { isRecurrent: false },
-        notes: 'Compra de papelaria e suprimentos',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        createdBy: 'admin',
-        updatedBy: 'admin'
-      },
-      {
-        id: '2',
-        description: 'Campanha Google Ads',
-        amount: 2000,
-        categoryId: '2',
-        bankAccountId: '1',
-        paymentMethodId: '2',
-        dueDate: new Date('2024-01-20'),
-        status: 'pending' as TransactionStatus,
-        recurrence: { isRecurrent: false },
-        notes: 'Campanha de marketing digital',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        createdBy: 'admin',
-        updatedBy: 'admin'
-      }
-    ]);
+    loadInitialData();
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Carregar despesas quando parâmetros de paginação mudarem
+  useEffect(() => {
+    loadExpenses();
+  }, [currentPage, itemsPerPage, searchTerm, statusFilter, advancedFilter]);
+
+  const loadInitialData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const [categoriesData, bankAccountsData, paymentMethodsData] = await Promise.all([
+        financialService.getCategories(),
+        financialService.getBankAccounts(),
+        financialService.getPaymentMethods()
+      ]);
+
+      setCategories(categoriesData.filter(cat => cat.type === 'expense'));
+      setBankAccounts(bankAccountsData);
+      setPaymentMethods(paymentMethodsData);
+
+      // Carregar despesas paginadas
+      await loadExpenses();
+    } catch (err) {
+      setError('Erro ao carregar dados. Tente novamente.');
+      console.error('Erro ao carregar dados:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadExpenses = async () => {
+    try {
+      setPaginationLoading(true);
+      setError(null);
+
+      // Construir filtros combinando filtros básicos e avançados
+      const filter: FinancialFilter = {
+        ...advancedFilter
+      };
+      
+      if (statusFilter !== 'all') {
+        filter.status = [statusFilter as TransactionStatus];
+      }
+      if (searchTerm) {
+        filter.searchTerm = searchTerm;
+      }
+
+      // Parâmetros de paginação
+      const params: PaginationParams = {
+        page: currentPage,
+        limit: itemsPerPage,
+        search: searchTerm || undefined,
+        sortBy: 'due_date',
+        sortOrder: 'desc'
+      };
+
+      const result = await financialService.getExpensesPaginated(params, filter);
+      
+      setExpenses(result.data);
+      setTotalPages(result.pagination.totalPages);
+      setTotalItems(result.pagination.totalItems);
+    } catch (err) {
+      setError('Erro ao carregar despesas. Tente novamente.');
+      console.error('Erro ao carregar despesas:', err);
+    } finally {
+      setPaginationLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (editingExpense) {
-      setExpenses(expenses.map(expense => 
-        expense.id === editingExpense.id 
-          ? {
-              ...expense,
-              description: formData.description,
-              amount: formData.amount,
-              categoryId: formData.categoryId,
-              bankAccountId: formData.bankAccountId,
-              paymentMethodId: formData.paymentMethodId,
-              dueDate: new Date(formData.dueDate),
-              paidDate: formData.paidDate ? new Date(formData.paidDate) : undefined,
-              status: formData.status,
-              recurrence: formData.recurrence || { isRecurrent: false },
-              notes: formData.notes,
-              updatedAt: new Date(),
-              updatedBy: 'admin'
-            }
-          : expense
-      ));
-    } else {
-      const newExpense: Expense = {
-        id: Date.now().toString(),
+    try {
+      const expenseData = {
         description: formData.description,
         amount: formData.amount,
         categoryId: formData.categoryId,
@@ -147,15 +185,24 @@ const ExpensesManager: React.FC = () => {
         status: formData.status,
         recurrence: formData.recurrence || { isRecurrent: false },
         notes: formData.notes,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        createdBy: 'admin',
-        updatedBy: 'admin'
+        createdBy: 'current-user', // TODO: Substituir por contexto de autenticação real
+        updatedBy: 'current-user'
       };
-      setExpenses([...expenses, newExpense]);
+
+      if (editingExpense) {
+        await financialService.updateExpense(editingExpense.id, expenseData);
+      } else {
+        await financialService.createExpense(expenseData);
+      }
+      
+      resetForm();
+      
+      // Recarregar dados paginados
+      await loadExpenses();
+    } catch (err) {
+      console.error('Erro ao salvar despesa:', err);
+      setError('Erro ao salvar despesa');
     }
-    
-    resetForm();
   };
 
   const handleEdit = (expense: Expense) => {
@@ -163,9 +210,9 @@ const ExpensesManager: React.FC = () => {
     setFormData({
       description: expense.description,
       amount: expense.amount,
-      categoryId: expense.categoryId,
-      bankAccountId: expense.bankAccountId,
-      paymentMethodId: expense.paymentMethodId,
+      categoryId: expense.categoryId || '',
+      bankAccountId: expense.bankAccountId || '',
+      paymentMethodId: expense.paymentMethodId || '',
       dueDate: expense.dueDate.toISOString().split('T')[0],
       paidDate: expense.paidDate?.toISOString().split('T')[0],
       status: expense.status,
@@ -175,9 +222,17 @@ const ExpensesManager: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (window.confirm('Tem certeza que deseja excluir esta despesa?')) {
-      setExpenses(expenses.filter(expense => expense.id !== id));
+      try {
+        await financialService.deleteExpense(id);
+        
+        // Recarregar dados paginados
+        await loadExpenses();
+      } catch (err) {
+        console.error('Erro ao excluir despesa:', err);
+        setError('Erro ao excluir despesa');
+      }
     }
   };
 
@@ -195,11 +250,7 @@ const ExpensesManager: React.FC = () => {
     setIsModalOpen(false);
   };
 
-  const filteredExpenses = expenses.filter(expense => {
-    const matchesSearch = expense.description.toLowerCase().includes(filter.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || expense.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+
 
   const getCategoryName = (categoryId: string) => {
     return categories.find(cat => cat.id === categoryId)?.name || 'N/A';
@@ -231,6 +282,26 @@ const ExpensesManager: React.FC = () => {
     }
   };
 
+  // Handlers de paginação
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const handleItemsPerPageChange = (itemsPerPage: number) => {
+    setItemsPerPage(itemsPerPage);
+    setCurrentPage(1); // Reset para primeira página
+  };
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+    setCurrentPage(1); // Reset para primeira página
+  };
+
+  const handleStatusFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setStatusFilter(e.target.value as TransactionStatus | 'all');
+    setCurrentPage(1); // Reset para primeira página
+  };
+
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
@@ -244,24 +315,44 @@ const ExpensesManager: React.FC = () => {
       </div>
 
       {/* Filtros */}
-      <div className="mb-6 flex gap-4">
-        <input
-          type="text"
-          placeholder="Buscar despesas..."
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+      <div className="bg-white p-4 rounded-lg shadow border mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Buscar
+            </label>
+            <input
+              type="text"
+              placeholder="Buscar despesas..."
+              value={searchTerm}
+              onChange={handleSearchChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Status
+            </label>
+            <select
+              value={statusFilter}
+              onChange={handleStatusFilterChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">Todos os Status</option>
+              <option value="pending">Pendente</option>
+              <option value="confirmed">Pago</option>
+              <option value="cancelled">Cancelado</option>
+            </select>
+          </div>
+        </div>
+        
+        {/* Filtros Avançados */}
+        <AdvancedFilters
+          filter={advancedFilter}
+          onFilterChange={setAdvancedFilter}
+          categories={categories}
+          type="expense"
         />
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as TransactionStatus | 'all')}
-          className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        >
-          <option value="all">Todos os Status</option>
-          <option value="pending">Pendente</option>
-          <option value="confirmed">Pago</option>
-          <option value="cancelled">Cancelado</option>
-        </select>
       </div>
 
       {/* Lista de Despesas */}
@@ -290,7 +381,7 @@ const ExpensesManager: React.FC = () => {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {filteredExpenses.map((expense) => (
+            {expenses.map((expense) => (
               <tr key={expense.id} className="hover:bg-gray-50">
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm font-medium text-gray-900">{expense.description}</div>
@@ -328,6 +419,20 @@ const ExpensesManager: React.FC = () => {
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Paginação */}
+      <div className="mt-6">
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          itemsPerPage={itemsPerPage}
+          onPageChange={handlePageChange}
+          onItemsPerPageChange={handleItemsPerPageChange}
+          showItemsPerPage={true}
+          showInfo={true}
+        />
       </div>
 
       {/* Modal */}
