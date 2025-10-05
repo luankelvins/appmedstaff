@@ -80,13 +80,13 @@ const testConfig: PerformanceConfig = {
 }
 
 const productionConfig: PerformanceConfig = {
-  enabled: true,
+  enabled: false, // Temporariamente desabilitado para resolver problema de tela em branco
   autoMonitoring: {
-    enabled: true,
+    enabled: false,
     intervalMs: 30000 // 30 segundos (menos frequente em produção)
   },
   alerts: {
-    enabled: true,
+    enabled: false,
     slowOperationThreshold: 2000, // 2 segundos (mais tolerante)
     highMemoryThreshold: 85, // 85%
     highLatencyThreshold: 1000 // 1 segundo
@@ -96,12 +96,12 @@ const productionConfig: PerformanceConfig = {
     maxAgeMs: 7 * 24 * 60 * 60 * 1000 // 7 dias
   },
   export: {
-    enabled: true,
+    enabled: false,
     format: 'json',
     intervalMs: 6 * 60 * 60 * 1000 // 6 horas
   },
   logging: {
-    enabled: true,
+    enabled: false,
     level: 'warn' // Apenas warnings e erros em produção
   }
 }
