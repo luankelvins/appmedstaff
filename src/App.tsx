@@ -1,4 +1,4 @@
-import React, { Suspense, useEffect } from 'react'
+import React, { Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './stores/authStore'
 import { Layout } from './components/Layout/Layout'
@@ -32,27 +32,7 @@ const LoadingFallback = () => (
 )
 
 function App() {
-  const { isAuthenticated, login } = useAuthStore()
-
-  // Login automático para desenvolvimento
-  useEffect(() => {
-    const autoLogin = async () => {
-      if (!isAuthenticated) {
-        try {
-          console.log('🔑 App - Fazendo login automático para desenvolvimento...')
-          await login({
-            email: 'admin@medstaff.com.br',
-            password: '123456'
-          })
-          console.log('✅ App - Login automático realizado com sucesso!')
-        } catch (error) {
-          console.error('❌ App - Erro no login automático:', error)
-        }
-      }
-    }
-
-    autoLogin()
-  }, [isAuthenticated, login])
+  const { isAuthenticated } = useAuthStore()
 
   if (!isAuthenticated) {
     return <Login />

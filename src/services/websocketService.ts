@@ -247,9 +247,9 @@ class WebSocketService {
 // Instância singleton
 export const websocketService = new WebSocketService()
 
-// Auto-conectar quando o serviço é importado
-if (typeof window !== 'undefined') {
-  websocketService.connect().catch(console.error)
-}
+// Removido auto-conectar para evitar erros quando não há servidor WebSocket
+// if (typeof window !== 'undefined') {
+//   websocketService.connect().catch(console.error)
+// }
 
 export default websocketService
