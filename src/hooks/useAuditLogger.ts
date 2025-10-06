@@ -1,10 +1,10 @@
 import { useCallback } from 'react'
 import { auditService } from '../services/auditService'
 import { AuditAction, AuditEntity } from '../types/audit'
-import { useAuthStore } from '../stores/authStore'
+import { useAuth } from '../contexts/AuthContext'
 
 export const useAuditLogger = () => {
-  const { user } = useAuthStore()
+  const { user } = useAuth()
 
   const logAction = useCallback(async (
     action: AuditAction,

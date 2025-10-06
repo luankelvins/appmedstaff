@@ -1,8 +1,8 @@
-import { useAuthStore } from '../stores/authStore'
+import { useAuth } from '../contexts/AuthContext'
 import { PermissionSlug } from '../types/auth'
 
 export const usePermissions = () => {
-  const { hasPermission, hasAnyPermission, hasRole, user } = useAuthStore()
+  const { user, hasPermission, hasAnyPermission, hasRole } = useAuth()
 
   return {
     hasPermission,
@@ -101,11 +101,11 @@ export const usePermissions = () => {
     // Auditoria
     canViewAuditLogs: () => hasPermission('audit.read'),
     
-    // Verificações de nível
-    isStrategicLevel: () => user?.role.level === 'strategic',
-    isManagerialLevel: () => user?.role.level === 'managerial',
-    isTacticalLevel: () => user?.role.level === 'tactical',
-    isOperationalLevel: () => user?.role.level === 'operational',
-    isSupportLevel: () => user?.role.level === 'support'
+    // Verificações de nível (baseado no role)
+    isStrategicLevel: () => user?.role === 'admin' || user?.role === 'director',
+    isManagerialLevel: () => user?.role === 'manager',
+    isTacticalLevel: () => user?.role === 'supervisor',
+    isOperationalLevel: () => user?.role === 'user' || user?.role === 'employee',
+    isSupportLevel: () => user?.role === 'support'
   }
 }

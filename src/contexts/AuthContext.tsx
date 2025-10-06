@@ -22,6 +22,9 @@ interface AuthContextType {
   loading: boolean
   isAuthenticated: boolean
   signUp: (email: string, password: string, userData: Partial<UserProfile>) => Promise<void>
+  hasPermission: (permission: string) => boolean
+  hasAnyPermission: (permissions: string[]) => boolean
+  hasRole: (role: string) => boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -61,11 +64,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const checkSession = async () => {
       try {
         const session = await supabaseService.getCurrentSession()
+        
         if (session?.user) {
           // Buscar perfil do usuário
           const profile = await supabaseService.getProfile(session.user.id)
+          
           if (profile) {
-            setUser(mapProfileToUser(profile))
+            const mappedUser = mapProfileToUser(profile)
+            setUser(mappedUser)
           }
         }
       } catch (error) {
@@ -84,7 +90,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           try {
             const profile = await supabaseService.getProfile(session.user.id)
             if (profile) {
-              setUser(mapProfileToUser(profile))
+              const mappedUser = mapProfileToUser(profile)
+              setUser(mappedUser)
             }
           } catch (error) {
             console.error('Erro ao buscar perfil:', error)
@@ -132,13 +139,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }
 
+  const hasPermission = (permission: string): boolean => {
+    return user?.permissions?.includes(permission) || false
+  }
+
+  const hasAnyPermission = (permissions: string[]): boolean => {
+    return permissions.some(permission => hasPermission(permission))
+  }
+
+  const hasRole = (role: string): boolean => {
+    return user?.role === role
+  }
+
   const value: AuthContextType = {
     user,
     login,
     logout,
     signUp,
     loading,
-    isAuthenticated: !!user
+    isAuthenticated: !!user,
+    hasPermission,
+    hasAnyPermission,
+    hasRole
   }
 
   return (

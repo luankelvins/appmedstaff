@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { Bell, Menu, User, LogOut, Settings, MessageSquare, Play, Square } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { useAuthStore } from '../../stores/authStore'
+import { useAuth } from '../../contexts/AuthContext'
 import { usePermissions } from '../../hooks/usePermissions'
 import NotificationDropdown from '../Notifications/NotificationDropdown'
 import DirectorNotificationDropdown from '../Notifications/DirectorNotificationDropdown'
@@ -14,7 +14,7 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, isSidebarOpen }) => {
-  const { user, logout } = useAuthStore()
+  const { user, logout } = useAuth()
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showChatNotifications, setShowChatNotifications] = useState(false)
   const [showDirectorNotifications, setShowDirectorNotifications] = useState(false)
@@ -129,7 +129,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, isSidebarOpen }
               </div>
               <div className="hidden sm:block text-left">
                 <p className="text-sm font-medium text-gray-900">{user?.name}</p>
-                <p className="text-xs text-gray-500">{user?.role.name}</p>
+                <p className="text-xs text-gray-500">{user?.role}</p>
               </div>
             </button>
 

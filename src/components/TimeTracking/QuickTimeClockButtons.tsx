@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Clock, LogIn, LogOut, Loader2 } from 'lucide-react'
-import { useAuthStore } from '../../stores/authStore'
+import { useAuth } from '../../contexts/AuthContext'
 import { timeTrackingService } from '../../services/timeTrackingService'
 import { TimeEntryFilter } from '../../types/timeTracking'
 import { toast } from 'react-hot-toast'
@@ -12,7 +12,7 @@ interface QuickTimeClockButtonsProps {
 export const QuickTimeClockButtons: React.FC<QuickTimeClockButtonsProps> = ({ 
   className = '' 
 }) => {
-  const { user } = useAuthStore()
+  const { user } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
   const [currentStatus, setCurrentStatus] = useState<'clocked_in' | 'clocked_out' | null>(null)
 

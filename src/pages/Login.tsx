@@ -1,15 +1,21 @@
 import { useState } from 'react'
-import { useAuthStore } from '../stores/authStore'
+import { useAuth } from '../contexts/AuthContext'
 import { Loading } from '../components/UI/Loading'
 
 export const Login = () => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const { login, isLoading, error } = useAuthStore()
+  const { login, loading, user } = useAuth()
+  const [error, setError] = useState<string | null>(null)
 
   const handleSubmit = async (e: any) => {
     e.preventDefault()
-    await login({ email, password })
+    setError(null)
+    try {
+      await login(email, password)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao fazer login')
+    }
   }
 
   return (
@@ -71,10 +77,10 @@ export const Login = () => {
 
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={loading}
             className="w-full bg-medstaff-primary text-white py-2 px-4 rounded-md hover:bg-medstaff-primary/90 focus:outline-none focus:ring-2 focus:ring-medstaff-primary focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {isLoading ? (
+            {loading ? (
               <div className="flex items-center justify-center">
                 <Loading size="sm" text="" />
                 <span className="ml-2">Entrando...</span>

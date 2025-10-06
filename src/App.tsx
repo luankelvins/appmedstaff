@@ -1,6 +1,6 @@
 import React, { Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { useAuthStore } from './stores/authStore'
+import { useAuth } from './contexts/AuthContext'
 import { Layout } from './components/Layout/Layout'
 import { Dashboard, Login, Feed, Tasks, Contacts } from './pages'
 import TasksPageWrapper from './components/Tasks/TasksPageWrapper'
@@ -32,71 +32,73 @@ const LoadingFallback = () => (
 )
 
 function App() {
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, loading, user } = useAuth()
+
+  if (loading) {
+    return <LoadingFallback />
+  }
 
   if (!isAuthenticated) {
     return <Login />
   }
 
   return (
-    <Layout>
-      <Suspense fallback={<LoadingFallback />}>
-        <Routes>
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/feed" element={<Feed />} />
-          <Route path="/tasks" element={<TasksPageWrapper />} />
-            <Route path="/tasks/list" element={<TasksPageWrapper />} />
-            <Route path="/tasks/kanban" element={<TasksPageWrapper />} />
-            <Route path="/tasks/calendar" element={<TasksPageWrapper />} />
-            <Route path="/tasks/projects" element={<Projects />} />
-            <Route path="/tasks/recurring" element={<RecurringSeries />} />
-            <Route path="/tasks/assignment" element={<TaskAssignmentPage />} />
-          <Route path="/contacts/*" element={<Contacts />} />
-          <Route path="/contacts/leads" element={<ContactsLeads />} />
-          <Route path="/crm/forms" element={<CRMForms />} />
-          <Route path="/activities/commercial" element={<Commercial />} />
-          <Route path="/activities/commercial/leads" element={<Leads />} />
-          <Route path="/activities/operational" element={<Operational />} />
-          <Route path="/activities/benefits" element={<Benefits />} />
-          <Route path="/company/organogram" element={<Organogram />} />
-          <Route path="/company/administrative" element={<Administrative />} />
-          <Route path="/company/financial" element={<Financial />} />
-          <Route path="/company/relationship" element={<Relationship />} />
-          <Route path="/business/hemet" element={<HeMet />} />
-              <Route path="/business/clinic-consulting" element={<ClinicConsulting />} />
-              
-              {/* Serviços com Parceiros */}
-              <Route path="/partners/financial-consulting-pf" element={<FinancialConsultingPF />} />
-              <Route path="/partners/pension-restitution" element={<PensionRestitution />} />
-              <Route path="/partners/housing-assistance" element={<HousingAssistance />} />
-              <Route path="/partners/tax-recovery" element={<TaxRecovery />} />
-              
-
-              
-              {/* Auditoria */}
-              <Route path="/audit" element={<Audit />} />
-              
-              {/* Notificações */}
-              <Route path="/notifications" element={<Notifications />} />
-              
-              {/* Chat Interno */}
-              <Route path="/chat" element={<Chat />} />
-              
-              {/* Perfil */}
-              <Route path="/profile" element={<Profile />} />
-              
-              {/* Demonstração */}
-              <Route path="/demo/employee-card" element={<EmployeeCardDemo />} />
-              <Route path="/demo/employee-profile" element={<EmployeeProfileDemo />} />
-              <Route path="/demo/improved-feed" element={<ImprovedFeedDemo />} />
-              
-              {/* Inspetor do Supabase */}
-              <Route path="/supabase-inspector" element={<SupabaseInspector />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Suspense>
-    </Layout>
+    <Suspense fallback={<LoadingFallback />}>
+      <Routes>
+        <Route path="/" element={<Layout />}>
+          <Route index element={<Dashboard />} />
+          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="feed" element={<Feed />} />
+          <Route path="tasks" element={<TasksPageWrapper />} />
+          <Route path="tasks/list" element={<TasksPageWrapper />} />
+          <Route path="tasks/kanban" element={<TasksPageWrapper />} />
+          <Route path="tasks/calendar" element={<TasksPageWrapper />} />
+          <Route path="tasks/projects" element={<Projects />} />
+          <Route path="tasks/recurring" element={<RecurringSeries />} />
+          <Route path="tasks/assignment" element={<TaskAssignmentPage />} />
+          <Route path="contacts/*" element={<Contacts />} />
+          <Route path="contacts/leads" element={<ContactsLeads />} />
+          <Route path="crm/forms" element={<CRMForms />} />
+          <Route path="activities/commercial" element={<Commercial />} />
+          <Route path="activities/commercial/leads" element={<Leads />} />
+          <Route path="activities/operational" element={<Operational />} />
+          <Route path="activities/benefits" element={<Benefits />} />
+          <Route path="company/organogram" element={<Organogram />} />
+          <Route path="company/administrative" element={<Administrative />} />
+          <Route path="company/financial" element={<Financial />} />
+          <Route path="company/relationship" element={<Relationship />} />
+          <Route path="business/hemet" element={<HeMet />} />
+          <Route path="business/clinic-consulting" element={<ClinicConsulting />} />
+          
+          {/* Serviços com Parceiros */}
+          <Route path="partners/financial-consulting-pf" element={<FinancialConsultingPF />} />
+          <Route path="partners/pension-restitution" element={<PensionRestitution />} />
+          <Route path="partners/housing-assistance" element={<HousingAssistance />} />
+          <Route path="partners/tax-recovery" element={<TaxRecovery />} />
+          
+          {/* Auditoria */}
+          <Route path="audit" element={<Audit />} />
+          
+          {/* Notificações */}
+          <Route path="notifications" element={<Notifications />} />
+          
+          {/* Chat Interno */}
+          <Route path="chat" element={<Chat />} />
+          
+          {/* Perfil */}
+          <Route path="profile" element={<Profile />} />
+          
+          {/* Demonstração */}
+          <Route path="demo/employee-card" element={<EmployeeCardDemo />} />
+          <Route path="demo/employee-profile" element={<EmployeeProfileDemo />} />
+          <Route path="demo/improved-feed" element={<ImprovedFeedDemo />} />
+          
+          {/* Inspetor do Supabase */}
+          <Route path="supabase-inspector" element={<SupabaseInspector />} />
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </Suspense>
   )
 }
 

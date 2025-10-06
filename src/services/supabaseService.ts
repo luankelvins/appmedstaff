@@ -56,7 +56,9 @@ export class SupabaseService {
    */
   async getCurrentSession() {
     const { data: { session }, error } = await supabase.auth.getSession()
-    if (error) throw error
+    if (error) {
+      throw error
+    }
     return session
   }
 
@@ -73,7 +75,9 @@ export class SupabaseService {
       .single()
 
     if (error) {
-      if (error.code === 'PGRST116') return null // Não encontrado
+      if (error.code === 'PGRST116') {
+        return null // Não encontrado
+      }
       throw error
     }
 
@@ -111,7 +115,7 @@ export class SupabaseService {
       employee_id: profileData.employeeId,
       phone: profileData.phone,
       hire_date: profileData.hireDate,
-      avatar_url: profileData.avatarUrl,
+      avatar_url: profileData.avatar,
       updated_at: new Date().toISOString()
     }
 
