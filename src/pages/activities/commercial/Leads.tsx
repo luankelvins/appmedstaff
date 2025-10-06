@@ -209,13 +209,28 @@ const Leads: React.FC = () => {
 
   useEffect(() => {
     // Carregar leads do serviço compartilhado
-    const allLeads = leadsService.getAllLeads()
-    setLeadCards(allLeads)
-    setStats(mockStats)
+    const loadLeads = async () => {
+      try {
+        const allLeads = await leadsService.getAllLeads()
+        // Garantir que sempre seja um array
+        setLeadCards(Array.isArray(allLeads) ? allLeads : [])
+        setStats(mockStats)
+      } catch (error) {
+        console.error('Erro ao carregar leads:', error)
+        setLeadCards([]) // Inicializar como array vazio em caso de erro
+      }
+    }
+
+    loadLeads()
 
     // Subscrever para mudanças nos leads
-    const unsubscribe = leadsService.subscribe((leads) => {
-      setLeadCards(leadsService.getAllLeads())
+    const unsubscribe = leadsService.subscribe(async (leads) => {
+      try {
+        const updatedLeads = await leadsService.getAllLeads()
+        setLeadCards(Array.isArray(updatedLeads) ? updatedLeads : [])
+      } catch (error) {
+        console.error('Erro ao atualizar leads:', error)
+      }
     })
 
     return unsubscribe

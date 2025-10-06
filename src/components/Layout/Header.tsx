@@ -1,12 +1,13 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Bell, Menu, User, LogOut, Settings, MessageSquare, Play, Square } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { usePermissions } from '../../hooks/usePermissions'
 import NotificationDropdown from '../Notifications/NotificationDropdown'
 import DirectorNotificationDropdown from '../Notifications/DirectorNotificationDropdown'
 import { ChatNotificationButton } from '../ChatNotificationButton'
 import { QuickTimeClockButtons } from '../TimeTracking/QuickTimeClockButtons'
+import { chatService } from '../../services/chatService'
 
 interface HeaderProps {
   onToggleSidebar: () => void
@@ -15,13 +16,41 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, isSidebarOpen }) => {
   const { user, logout } = useAuth()
+  const navigate = useNavigate()
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showChatNotifications, setShowChatNotifications] = useState(false)
   const [showDirectorNotifications, setShowDirectorNotifications] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
+  const [chatUnreadCount, setChatUnreadCount] = useState(0)
+
+  // Buscar contagem de mensagens não lidas
+  useEffect(() => {
+    const loadUnreadCount = async () => {
+      if (!user?.id) return
+      
+      try {
+        const channels = await chatService.getMyChannels(user.id)
+        const total = channels.reduce((sum, ch) => sum + (ch.unread_count || 0), 0)
+        setChatUnreadCount(total)
+      } catch (error) {
+        console.error('Erro ao carregar mensagens não lidas:', error)
+      }
+    }
+
+    loadUnreadCount()
+    
+    // Atualizar a cada 30 segundos
+    const interval = setInterval(loadUnreadCount, 30000)
+    return () => clearInterval(interval)
+  }, [user?.id])
 
   const handleLogout = () => {
     logout()
+  }
+
+  const handleChatClick = () => {
+    setShowChatNotifications(false)
+    navigate('/chat')
   }
 
   return (
@@ -58,14 +87,17 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, isSidebarOpen }
           {/* Chat Notifications */}
           <div className="relative hidden sm:block">
             <button
-              onClick={() => setShowChatNotifications(!showChatNotifications)}
+              onClick={handleChatClick}
               className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md relative transition-colors"
-              aria-label="Notificações de chat"
+              aria-label="Chat Interno"
+              title="Chat Interno"
             >
               <MessageSquare className="h-5 w-5 lg:h-6 lg:w-6" />
-              <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs rounded-full h-4 w-4 lg:h-5 lg:w-5 flex items-center justify-center">
-                7
-              </span>
+              {chatUnreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs rounded-full h-4 w-4 lg:h-5 lg:w-5 flex items-center justify-center">
+                  {chatUnreadCount > 99 ? '99+' : chatUnreadCount}
+                </span>
+              )}
             </button>
           </div>
           

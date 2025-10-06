@@ -1,587 +1,531 @@
-import { useState, useEffect, useCallback } from 'react'
-import { 
-  ChatUser, 
-  ChatMessage, 
-  ChatChannel, 
-  ChatConversation, 
-  ChatFilter, 
-  ChatStats,
-  TypingIndicator,
-  ChatNotification
-} from '../types/chat'
-import { websocketService, WebSocketEvent } from './websocketService'
-import { chatNotificationService } from './chatNotificationService'
+import { supabase, supabaseAdmin } from '../config/supabase'
+import type { RealtimeChannel } from '@supabase/supabase-js'
 
-// Mock data para demonstração
-const mockUsers: ChatUser[] = [
-  {
-    id: 'user1',
-    name: 'João Silva',
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=32&h=32&fit=crop&crop=face',
-    role: 'Gerente Comercial',
-    department: 'Comercial',
-    isOnline: true
-  },
-  {
-    id: 'user2',
-    name: 'Maria Santos',
-    avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=32&h=32&fit=crop&crop=face',
-    role: 'Analista Financeiro',
-    department: 'Financeiro',
-    isOnline: true
-  },
-  {
-    id: 'user3',
-    name: 'Pedro Costa',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=32&h=32&fit=crop&crop=face',
-    role: 'Analista Operacional',
-    department: 'Operacional',
-    isOnline: false,
-    lastSeen: new Date(Date.now() - 3600000).toISOString()
-  },
-  {
-    id: 'user4',
-    name: 'Ana Oliveira',
-    avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=32&h=32&fit=crop&crop=face',
-    role: 'Analista RH',
-    department: 'RH',
-    isOnline: true
+// ==================== TIPOS ====================
+
+export interface ChatChannel {
+  id: string
+  name: string
+  description?: string
+  type: 'public' | 'private' | 'direct'
+  created_by?: string
+  created_at: string
+  updated_at: string
+  is_active: boolean
+  unread_count?: number
+}
+
+export interface ChatMessage {
+  id: string
+  channel_id: string
+  user_id: string
+  content: string
+  type: 'text' | 'file' | 'image' | 'system'
+  metadata?: any
+  reply_to?: string
+  is_edited: boolean
+  is_deleted: boolean
+  created_at: string
+  updated_at: string
+  user?: {
+    id: string
+    name: string
+    avatar?: string
   }
-]
+}
 
-const mockChannels: ChatChannel[] = [
-  {
-    id: 'channel1',
-    name: 'Geral',
-    description: 'Canal geral da empresa',
-    type: 'public',
-    members: ['user1', 'user2', 'user3', 'user4'],
-    admins: ['user1'],
-    createdBy: 'user1',
-    createdAt: new Date(Date.now() - 86400000 * 30).toISOString(),
-    unreadCount: 2
-  },
-  {
-    id: 'channel2',
-    name: 'Comercial',
-    description: 'Discussões da equipe comercial',
-    type: 'private',
-    members: ['user1', 'user2'],
-    admins: ['user1'],
-    createdBy: 'user1',
-    createdAt: new Date(Date.now() - 86400000 * 15).toISOString(),
-    unreadCount: 0
-  },
-  {
-    id: 'channel3',
-    name: 'Financeiro',
-    description: 'Assuntos financeiros',
-    type: 'private',
-    members: ['user1', 'user2', 'user4'],
-    admins: ['user2'],
-    createdBy: 'user2',
-    createdAt: new Date(Date.now() - 86400000 * 7).toISOString(),
-    unreadCount: 1
-  }
-]
+export interface ChatChannelMember {
+  id: string
+  channel_id: string
+  user_id: string
+  role: 'owner' | 'admin' | 'member'
+  joined_at: string
+  last_read_at: string
+}
 
-const mockMessages: ChatMessage[] = [
-  {
-    id: 'msg1',
-    content: 'Bom dia pessoal! Como estão os números de hoje?',
-    senderId: 'user1',
-    channelId: 'channel1',
-    type: 'text',
-    timestamp: new Date(Date.now() - 3600000).toISOString(),
-    readBy: ['user1', 'user2']
-  },
-  {
-    id: 'msg2',
-    content: 'Oi João! Os números estão bons, vou enviar o relatório em breve.',
-    senderId: 'user2',
-    channelId: 'channel1',
-    type: 'text',
-    timestamp: new Date(Date.now() - 3000000).toISOString(),
-    readBy: ['user1', 'user2']
-  },
-  {
-    id: 'msg3',
-    content: 'Perfeito! Obrigado Maria.',
-    senderId: 'user1',
-    channelId: 'channel1',
-    type: 'text',
-    timestamp: new Date(Date.now() - 2700000).toISOString(),
-    readBy: ['user1']
-  },
-  {
-    id: 'msg4',
-    content: 'Oi Maria, você pode me ajudar com uma dúvida sobre o relatório?',
-    senderId: 'user1',
-    receiverId: 'user2',
-    type: 'text',
-    timestamp: new Date(Date.now() - 1800000).toISOString(),
-    readBy: ['user1']
-  },
-  {
-    id: 'msg5',
-    content: 'Claro! Qual é a dúvida?',
-    senderId: 'user2',
-    receiverId: 'user1',
-    type: 'text',
-    timestamp: new Date(Date.now() - 1500000).toISOString(),
-    readBy: ['user2']
-  }
-]
+export interface TypingIndicator {
+  channel_id: string
+  user_id: string
+  user_name: string
+}
 
-const mockConversations: ChatConversation[] = [
-  {
-    id: 'conv1',
-    participants: ['user1', 'user2'],
-    type: 'direct',
-    unreadCount: 1,
-    createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
-    updatedAt: new Date(Date.now() - 1500000).toISOString(),
-    lastMessage: mockMessages.find(m => m.id === 'msg5')
-  },
-  {
-    id: 'conv2',
-    participants: ['user1', 'user3'],
-    type: 'direct',
-    unreadCount: 0,
-    createdAt: new Date(Date.now() - 86400000 * 3).toISOString(),
-    updatedAt: new Date(Date.now() - 86400000).toISOString()
-  }
-]
+// ==================== SERVIÇO DE CHAT ====================
 
-// Gerenciador de chat com WebSocket
-class ChatManager {
-  private listeners: ((event: WebSocketEvent) => void)[] = []
-  private typingUsers: Map<string, TypingIndicator> = new Map()
-  private unsubscribeWebSocket: (() => void) | null = null
+class ChatService {
+  private typingChannel: RealtimeChannel | null = null
+  private messageChannels: Map<string, RealtimeChannel> = new Map()
 
-  constructor() {
-    this.initializeWebSocket()
-  }
+  // ==================== CANAIS ====================
 
-  private initializeWebSocket() {
-    // Conecta aos eventos do WebSocket
-    this.unsubscribeWebSocket = websocketService.on('*', (event) => {
-      this.handleWebSocketEvent(event)
-    })
-  }
+  /**
+   * Busca todos os canais que o usuário tem acesso
+   */
+  async getMyChannels(userId: string): Promise<ChatChannel[]> {
+    try {
+      // Usar admin client para bypass RLS
+      const client = supabaseAdmin || supabase
+      
+      // Buscar IDs dos canais que o usuário é membro
+      const { data: memberData, error: memberError } = await client
+        .from('chat_channel_members')
+        .select('channel_id')
+        .eq('user_id', userId)
 
-  private handleWebSocketEvent(event: WebSocketEvent) {
-    // Processa eventos específicos
-    switch (event.type) {
-      case 'message':
-        this.handleNewMessage(event.data)
-        this.notifyListeners(event)
-        break
-      case 'typing_start':
-        this.handleTypingStart(event.data)
-        break
-      case 'typing_stop':
-        this.handleTypingStop(event.data)
-        break
-      case 'user_status':
-      case 'read':
-        this.notifyListeners(event)
-        break
-    }
-  }
-
-  private handleNewMessage(message: ChatMessage) {
-    // Encontrar o remetente
-    const sender = mockUsers.find(user => user.id === message.senderId)
-    if (!sender) return
-
-    // Determinar o nome da conversa
-    let conversationName = 'Chat'
-    
-    if (message.channelId) {
-      const channel = mockChannels.find(ch => ch.id === message.channelId)
-      conversationName = channel?.name || 'Canal'
-    } else if (message.receiverId) {
-      conversationName = `Conversa com ${sender.name}`
-    }
-
-    // Mostrar notificação
-    chatNotificationService.showMessageNotification(message, sender, conversationName)
-  }
-
-  private handleTypingStart(data: { userId: string; conversationId: string }) {
-    const indicator: TypingIndicator = {
-      userId: data.userId,
-      conversationId: data.conversationId,
-      timestamp: new Date().toISOString()
-    }
-
-    this.typingUsers.set(`${data.userId}_${data.conversationId}`, indicator)
-    this.notifyListeners({ type: 'typing_start', data: indicator, timestamp: new Date().toISOString() })
-  }
-
-  private handleTypingStop(data: { userId: string; conversationId: string }) {
-    const key = `${data.userId}_${data.conversationId}`
-    if (this.typingUsers.has(key)) {
-      this.typingUsers.delete(key)
-      this.notifyListeners({ type: 'typing_stop', data, timestamp: new Date().toISOString() })
-    }
-  }
-
-  private notifyListeners(event: WebSocketEvent) {
-    this.listeners.forEach(listener => {
-      try {
-        listener(event)
-      } catch (error) {
-        console.error('Erro ao notificar listener:', error)
+      if (memberError) {
+        console.error('Erro ao buscar membros:', memberError)
+        return []
       }
-    })
-  }
 
-  subscribe(callback: (event: WebSocketEvent) => void) {
-    this.listeners.push(callback)
-    return () => {
-      const index = this.listeners.indexOf(callback)
-      if (index > -1) this.listeners.splice(index, 1)
+      const channelIds = memberData?.map(m => m.channel_id) || []
+
+      if (channelIds.length === 0) {
+        return []
+      }
+
+      // Buscar detalhes dos canais
+      const { data: channels, error: channelsError } = await client
+        .from('chat_channels')
+        .select('*')
+        .in('id', channelIds)
+        .eq('is_active', true)
+        .order('updated_at', { ascending: false })
+
+      if (channelsError) {
+        console.error('Erro ao buscar canais:', channelsError)
+        return []
+      }
+
+      // Buscar contagem de mensagens não lidas (sem await paralelo por enquanto)
+      const channelsWithUnread: ChatChannel[] = []
+      for (const channel of channels || []) {
+        const unread = await this.getUnreadCount(userId, channel.id)
+        channelsWithUnread.push({ ...channel, unread_count: unread })
+      }
+
+      return channelsWithUnread
+    } catch (error) {
+      console.error('Erro ao buscar canais:', error)
+      return []
     }
   }
 
-  sendMessage(message: Omit<ChatMessage, 'id' | 'timestamp'>) {
-    const newMessage: ChatMessage = {
-      ...message,
-      id: `msg_${Date.now()}`,
-      timestamp: new Date().toISOString(),
-      readBy: [message.senderId]
-    }
+  /**
+   * Busca canais públicos disponíveis
+   */
+  async getPublicChannels(): Promise<ChatChannel[]> {
+    try {
+      const { data, error } = await supabase
+        .from('chat_channels')
+        .select('*')
+        .eq('type', 'public')
+        .eq('is_active', true)
+        .order('name')
 
-    mockMessages.push(newMessage)
-    
-    // Atualizar última mensagem da conversa/canal
-    if (message.channelId) {
-      const channel = mockChannels.find(c => c.id === message.channelId)
-      if (channel) {
-        channel.lastMessage = newMessage
-        // Incrementar contador de não lidas para outros usuários
-        channel.members.forEach(memberId => {
-          if (memberId !== message.senderId) {
-            channel.unreadCount = (channel.unreadCount || 0) + 1
-          }
+      if (error) throw error
+      return data || []
+    } catch (error) {
+      console.error('Erro ao buscar canais públicos:', error)
+      return []
+    }
+  }
+
+  /**
+   * Cria um novo canal
+   */
+  async createChannel(
+    name: string,
+    description: string,
+    type: 'public' | 'private',
+    createdBy: string,
+    members: string[] = []
+  ): Promise<ChatChannel | null> {
+    try {
+      // Criar canal
+      const { data: channel, error: channelError } = await supabase
+        .from('chat_channels')
+        .insert({
+          name,
+          description,
+          type,
+          created_by: createdBy
         })
-      }
-    } else if (message.receiverId) {
-      const conversation = mockConversations.find(c => 
-        c.participants.includes(message.senderId) && 
-        c.participants.includes(message.receiverId!)
-      )
-      if (conversation) {
-        conversation.lastMessage = newMessage
-        conversation.updatedAt = newMessage.timestamp
-        conversation.unreadCount = (conversation.unreadCount || 0) + 1
-      }
-    }
+        .select()
+        .single()
 
-    // Envia via WebSocket
-    websocketService.sendMessage(message)
+      if (channelError) throw channelError
 
-    return newMessage
-  }
+      // Adicionar criador como owner
+      await supabase
+        .from('chat_channel_members')
+        .insert({
+          channel_id: channel.id,
+          user_id: createdBy,
+          role: 'owner'
+        })
 
-  markAsRead(conversationId: string, userId: string) {
-    const messages = mockMessages.filter(m => 
-      m.channelId === conversationId || 
-      (m.receiverId === userId && m.senderId !== userId) ||
-      (m.senderId === userId && m.receiverId !== userId)
-    )
-
-    messages.forEach(message => {
-      if (!message.readBy?.includes(userId)) {
-        message.readBy = [...(message.readBy || []), userId]
-      }
-    })
-
-    // Resetar contador de não lidas
-    const channel = mockChannels.find(c => c.id === conversationId)
-    if (channel) {
-      channel.unreadCount = 0
-    }
-
-    const conversation = mockConversations.find(c => c.id === conversationId)
-    if (conversation) {
-      conversation.unreadCount = 0
-    }
-
-    websocketService.markAsRead(conversationId, userId, [])
-  }
-
-  startTyping(userId: string, conversationId: string) {
-    websocketService.startTyping(userId, conversationId)
-  }
-
-  stopTyping(userId: string, conversationId: string) {
-    websocketService.stopTyping(userId, conversationId)
-  }
-
-  updateUserStatus(userId: string, isOnline: boolean) {
-    const user = mockUsers.find(u => u.id === userId)
-    if (user) {
-      user.isOnline = isOnline
-      if (!isOnline) {
-        user.lastSeen = new Date().toISOString()
-      }
-
-      websocketService.updateUserStatus(userId, isOnline)
-    }
-  }
-
-  joinRoom(roomId: string) {
-    websocketService.joinRoom(roomId)
-  }
-
-  leaveRoom(roomId: string) {
-    websocketService.leaveRoom(roomId)
-  }
-
-  disconnect() {
-    if (this.unsubscribeWebSocket) {
-      this.unsubscribeWebSocket()
-      this.unsubscribeWebSocket = null
-    }
-  }
-}
-
-const chatManager = new ChatManager()
-
-// Serviços de API
-export const chatService = {
-  async getUsers(): Promise<ChatUser[]> {
-    await new Promise(resolve => setTimeout(resolve, 200))
-    return [...mockUsers]
-  },
-
-  async getChannels(): Promise<ChatChannel[]> {
-    await new Promise(resolve => setTimeout(resolve, 200))
-    return [...mockChannels]
-  },
-
-  async getConversations(): Promise<ChatConversation[]> {
-    await new Promise(resolve => setTimeout(resolve, 200))
-    return [...mockConversations]
-  },
-
-  async getMessages(conversationId: string, limit = 50): Promise<ChatMessage[]> {
-    await new Promise(resolve => setTimeout(resolve, 300))
-    
-    const messages = mockMessages.filter(m => 
-      m.channelId === conversationId || 
-      (m.receiverId && (m.senderId === conversationId || m.receiverId === conversationId))
-    )
-
-    return messages
-      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-      .slice(-limit)
-  },
-
-  async sendMessage(message: Omit<ChatMessage, 'id' | 'timestamp'>): Promise<ChatMessage> {
-    await new Promise(resolve => setTimeout(resolve, 100))
-    return chatManager.sendMessage(message)
-  },
-
-  async markAsRead(conversationId: string, userId: string): Promise<void> {
-    await new Promise(resolve => setTimeout(resolve, 100))
-    chatManager.markAsRead(conversationId, userId)
-  },
-
-  async createChannel(channel: Omit<ChatChannel, 'id' | 'createdAt'>): Promise<ChatChannel> {
-    await new Promise(resolve => setTimeout(resolve, 200))
-    
-    const newChannel: ChatChannel = {
-      ...channel,
-      id: Date.now().toString(),
-      createdAt: new Date().toISOString(),
-      unreadCount: 0
-    }
-
-    mockChannels.push(newChannel)
-    return newChannel
-  },
-
-  async joinChannel(channelId: string, userId: string): Promise<void> {
-    await new Promise(resolve => setTimeout(resolve, 200))
-    
-    const channel = mockChannels.find(c => c.id === channelId)
-    if (channel && !channel.members.includes(userId)) {
-      channel.members.push(userId)
-    }
-  },
-
-  async leaveChannel(channelId: string, userId: string): Promise<void> {
-    await new Promise(resolve => setTimeout(resolve, 200))
-    
-    const channel = mockChannels.find(c => c.id === channelId)
-    if (channel) {
-      channel.members = channel.members.filter(id => id !== userId)
-    }
-  },
-
-  async getStats(): Promise<ChatStats> {
-    await new Promise(resolve => setTimeout(resolve, 200))
-    
-    const totalMessages = mockMessages.length
-    const totalConversations = mockConversations.length
-    const totalChannels = mockChannels.length
-    const onlineUsers = mockUsers.filter(u => u.isOnline).length
-    const unreadMessages = mockChannels.reduce((sum, c) => sum + (c.unreadCount || 0), 0) +
-                          mockConversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0)
-
-    return {
-      totalMessages,
-      totalConversations,
-      totalChannels,
-      onlineUsers,
-      unreadMessages
-    }
-  }
-}
-
-// Hook para gerenciar chat
-export const useChat = () => {
-  const [users, setUsers] = useState<ChatUser[]>([])
-  const [channels, setChannels] = useState<ChatChannel[]>([])
-  const [conversations, setConversations] = useState<ChatConversation[]>([])
-  const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [stats, setStats] = useState<ChatStats | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [typingUsers, setTypingUsers] = useState<TypingIndicator[]>([])
-
-  const loadUsers = useCallback(async () => {
-    try {
-      const data = await chatService.getUsers()
-      setUsers(data)
-    } catch (error) {
-      console.error('Erro ao carregar usuários:', error)
-    }
-  }, [])
-
-  const loadChannels = useCallback(async () => {
-    try {
-      const data = await chatService.getChannels()
-      setChannels(data)
-    } catch (error) {
-      console.error('Erro ao carregar canais:', error)
-    }
-  }, [])
-
-  const loadConversations = useCallback(async () => {
-    try {
-      const data = await chatService.getConversations()
-      setConversations(data)
-    } catch (error) {
-      console.error('Erro ao carregar conversas:', error)
-    }
-  }, [])
-
-  const loadMessages = useCallback(async (conversationId: string) => {
-    setLoading(true)
-    try {
-      const data = await chatService.getMessages(conversationId)
-      setMessages(data)
-    } catch (error) {
-      console.error('Erro ao carregar mensagens:', error)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  const sendMessage = useCallback(async (message: Omit<ChatMessage, 'id' | 'timestamp'>) => {
-    try {
-      const newMessage = await chatService.sendMessage(message)
-      setMessages(prev => [...prev, newMessage])
-      return newMessage
-    } catch (error) {
-      console.error('Erro ao enviar mensagem:', error)
-      throw error
-    }
-  }, [])
-
-  const markAsRead = useCallback(async (conversationId: string, userId: string) => {
-    try {
-      await chatService.markAsRead(conversationId, userId)
-    } catch (error) {
-      console.error('Erro ao marcar como lida:', error)
-    }
-  }, [])
-
-  const loadStats = useCallback(async () => {
-    try {
-      const data = await chatService.getStats()
-      setStats(data)
-    } catch (error) {
-      console.error('Erro ao carregar estatísticas:', error)
-    }
-  }, [])
-
-  // Subscrição para eventos em tempo real
-  useEffect(() => {
-    const unsubscribe = chatManager.subscribe((event) => {
-      switch (event.type) {
-        case 'message':
-          setMessages(prev => [...prev, event.data])
-          loadChannels()
-          loadConversations()
-          loadStats()
-          break
-        case 'read':
-          setMessages(prev => 
-            prev.map(m => ({
-              ...m,
-              readBy: m.readBy?.includes(event.data.userId) 
-                ? m.readBy 
-                : [...(m.readBy || []), event.data.userId]
+      // Adicionar membros
+      if (members.length > 0) {
+        await supabase
+          .from('chat_channel_members')
+          .insert(
+            members.map(userId => ({
+              channel_id: channel.id,
+              user_id: userId,
+              role: 'member'
             }))
           )
-          break
-        case 'typing_start':
-          setTypingUsers(prev => [...prev.filter(t => 
-            !(t.userId === event.data.userId && t.conversationId === event.data.conversationId)
-          ), event.data])
-          break
-        case 'typing_stop':
-          setTypingUsers(prev => prev.filter(t => 
-            !(t.userId === event.data.userId && t.conversationId === event.data.conversationId)
-          ))
-          break
-        case 'user_status':
-          setUsers(prev => prev.map(u => 
-            u.id === event.data.userId 
-              ? { ...u, isOnline: event.data.isOnline }
-              : u
-          ))
-          break
       }
-    })
 
-    return unsubscribe
-  }, [loadChannels, loadConversations, loadStats])
+      return channel
+    } catch (error) {
+      console.error('Erro ao criar canal:', error)
+      return null
+    }
+  }
 
-  useEffect(() => {
-    loadUsers()
-    loadChannels()
-    loadConversations()
-    loadStats()
-  }, [loadUsers, loadChannels, loadConversations, loadStats])
+  /**
+   * Inicia conversa direta com usuário
+   */
+  async startDirectConversation(user1Id: string, user2Id: string): Promise<ChatChannel | null> {
+    try {
+      // Verificar se já existe conversa
+      const { data: existing } = await supabase
+        .from('chat_direct_conversations')
+        .select('channel_id, chat_channels(*)')
+        .or(`and(user1_id.eq.${user1Id},user2_id.eq.${user2Id}),and(user1_id.eq.${user2Id},user2_id.eq.${user1Id})`)
+        .single()
 
-  return {
-    users,
-    channels,
-    conversations,
-    messages,
-    stats,
-    loading,
-    typingUsers,
-    loadMessages,
-    sendMessage,
-    markAsRead,
-    startTyping: chatManager.startTyping.bind(chatManager),
-    stopTyping: chatManager.stopTyping.bind(chatManager)
+      if (existing) {
+        return existing.chat_channels as any
+      }
+
+      // Criar novo canal direto
+      const { data: channel, error: channelError } = await supabase
+        .from('chat_channels')
+        .insert({
+          name: `Direct: ${user1Id}-${user2Id}`,
+          type: 'direct',
+          created_by: user1Id
+        })
+        .select()
+        .single()
+
+      if (channelError) throw channelError
+
+      // Criar registro de conversa direta
+      await supabase
+        .from('chat_direct_conversations')
+        .insert({
+          user1_id: user1Id,
+          user2_id: user2Id,
+          channel_id: channel.id
+        })
+
+      // Adicionar ambos usuários como membros
+      await supabase
+        .from('chat_channel_members')
+        .insert([
+          { channel_id: channel.id, user_id: user1Id, role: 'member' },
+          { channel_id: channel.id, user_id: user2Id, role: 'member' }
+        ])
+
+      return channel
+    } catch (error) {
+      console.error('Erro ao iniciar conversa direta:', error)
+      return null
+    }
+  }
+
+  // ==================== MENSAGENS ====================
+
+  /**
+   * Busca mensagens de um canal
+   */
+  async getMessages(channelId: string, limit: number = 50): Promise<ChatMessage[]> {
+    try {
+      const { data, error } = await supabase
+        .from('chat_messages')
+        .select(`
+          *,
+          profiles:user_id(id, name, avatar_url)
+        `)
+        .eq('channel_id', channelId)
+        .eq('is_deleted', false)
+        .order('created_at', { ascending: false })
+        .limit(limit)
+
+      if (error) throw error
+
+      return (data || []).map(msg => ({
+        ...msg,
+        user: msg.profiles ? {
+          id: msg.profiles.id,
+          name: msg.profiles.name,
+          avatar: msg.profiles.avatar_url
+        } : undefined
+      })).reverse()
+    } catch (error) {
+      console.error('Erro ao buscar mensagens:', error)
+      return []
+    }
+  }
+
+  /**
+   * Envia uma mensagem
+   */
+  async sendMessage(
+    channelId: string,
+    userId: string,
+    content: string,
+    type: 'text' | 'file' | 'image' = 'text',
+    replyTo?: string
+  ): Promise<ChatMessage | null> {
+    try {
+      const { data, error } = await supabase
+        .from('chat_messages')
+        .insert({
+          channel_id: channelId,
+          user_id: userId,
+          content,
+          type,
+          reply_to: replyTo
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+
+      // Atualizar timestamp do canal
+      await supabase
+        .from('chat_channels')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', channelId)
+
+      return data
+    } catch (error) {
+      console.error('Erro ao enviar mensagem:', error)
+      return null
+    }
+  }
+
+  /**
+   * Edita uma mensagem
+   */
+  async editMessage(messageId: string, content: string): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('chat_messages')
+        .update({ content, is_edited: true })
+        .eq('id', messageId)
+
+      if (error) throw error
+      return true
+    } catch (error) {
+      console.error('Erro ao editar mensagem:', error)
+      return false
+    }
+  }
+
+  /**
+   * Deleta uma mensagem
+   */
+  async deleteMessage(messageId: string): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('chat_messages')
+        .update({ is_deleted: true, content: '[Mensagem deletada]' })
+        .eq('id', messageId)
+
+      if (error) throw error
+      return true
+    } catch (error) {
+      console.error('Erro ao deletar mensagem:', error)
+      return false
+    }
+  }
+
+  // ==================== MENSAGENS NÃO LIDAS ====================
+
+  /**
+   * Obtém contagem de mensagens não lidas
+   */
+  async getUnreadCount(userId: string, channelId: string): Promise<number> {
+    try {
+      const { data, error } = await supabase
+        .rpc('get_unread_messages_count', {
+          p_user_id: userId,
+          p_channel_id: channelId
+        })
+
+      if (error) throw error
+      return data || 0
+    } catch (error) {
+      // Se função não existir, calcular manualmente
+      try {
+        const { data: member } = await supabase
+          .from('chat_channel_members')
+          .select('last_read_at')
+          .eq('user_id', userId)
+          .eq('channel_id', channelId)
+          .single()
+
+        const { count } = await supabase
+          .from('chat_messages')
+          .select('*', { count: 'exact', head: true })
+          .eq('channel_id', channelId)
+          .gt('created_at', member?.last_read_at || '1970-01-01')
+          .neq('user_id', userId)
+
+        return count || 0
+      } catch {
+        return 0
+      }
+    }
+  }
+
+  /**
+   * Marca mensagens como lidas
+   */
+  async markAsRead(userId: string, channelId: string): Promise<void> {
+    try {
+      await supabase
+        .rpc('mark_messages_as_read', {
+          p_user_id: userId,
+          p_channel_id: channelId
+        })
+    } catch (error) {
+      // Se função não existir, atualizar manualmente
+      await supabase
+        .from('chat_channel_members')
+        .update({ last_read_at: new Date().toISOString() })
+        .eq('user_id', userId)
+        .eq('channel_id', channelId)
+    }
+  }
+
+  // ==================== INDICADORES DE DIGITAÇÃO ====================
+
+  /**
+   * Define indicador de digitação
+   */
+  async setTyping(userId: string, channelId: string, userName: string): Promise<void> {
+    try {
+      await supabase
+        .from('chat_typing_indicators')
+        .upsert({
+          channel_id: channelId,
+          user_id: userId,
+          started_at: new Date().toISOString()
+        })
+    } catch (error) {
+      console.error('Erro ao definir indicador de digitação:', error)
+    }
+  }
+
+  /**
+   * Remove indicador de digitação
+   */
+  async removeTyping(userId: string, channelId: string): Promise<void> {
+    try {
+      await supabase
+        .from('chat_typing_indicators')
+        .delete()
+        .eq('user_id', userId)
+        .eq('channel_id', channelId)
+    } catch (error) {
+      console.error('Erro ao remover indicador de digitação:', error)
+    }
+  }
+
+  // ==================== REALTIME ====================
+
+  /**
+   * Subscreve para novas mensagens em um canal
+   */
+  subscribeToMessages(
+    channelId: string,
+    onMessage: (message: ChatMessage) => void
+  ): () => void {
+    const channel = supabase
+      .channel(`messages:${channelId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'chat_messages',
+          filter: `channel_id=eq.${channelId}`
+        },
+        (payload) => {
+          onMessage(payload.new as ChatMessage)
+        }
+      )
+      .subscribe()
+
+    this.messageChannels.set(channelId, channel)
+
+    return () => {
+      channel.unsubscribe()
+      this.messageChannels.delete(channelId)
+    }
+  }
+
+  /**
+   * Subscreve para indicadores de digitação
+   */
+  subscribeToTyping(
+    channelId: string,
+    onTyping: (indicators: TypingIndicator[]) => void
+  ): () => void {
+    const channel = supabase
+      .channel(`typing:${channelId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'chat_typing_indicators',
+          filter: `channel_id=eq.${channelId}`
+        },
+        async () => {
+          // Buscar indicadores atualizados
+          const { data } = await supabase
+            .from('chat_typing_indicators')
+            .select(`
+              *,
+              profiles:user_id(name)
+            `)
+            .eq('channel_id', channelId)
+            .gt('started_at', new Date(Date.now() - 10000).toISOString())
+
+          const indicators = (data || []).map(d => ({
+            channel_id: d.channel_id,
+            user_id: d.user_id,
+            user_name: d.profiles?.name || 'Usuário'
+          }))
+
+          onTyping(indicators)
+        }
+      )
+      .subscribe()
+
+    this.typingChannel = channel
+
+    return () => {
+      channel.unsubscribe()
+      this.typingChannel = null
+    }
+  }
+
+  /**
+   * Limpa todas as subscrições
+   */
+  cleanup(): void {
+    this.typingChannel?.unsubscribe()
+    this.messageChannels.forEach(channel => channel.unsubscribe())
+    this.messageChannels.clear()
   }
 }
+
+export const chatService = new ChatService()
+export default chatService

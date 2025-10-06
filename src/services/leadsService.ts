@@ -50,14 +50,15 @@ class LeadsService {
     try {
       const { data: leads, error } = await supabase
         .from('leads')
-        .select(`
-          *,
-          tasks:tasks(*)
-        `)
+        .select('*')
         .order('created_at', { ascending: false })
 
       if (error) {
         console.error('Erro ao buscar leads:', error)
+        return []
+      }
+
+      if (!leads) {
         return []
       }
 
@@ -169,7 +170,8 @@ class LeadsService {
         dataUltimoContato: lead.last_contact_at ? new Date(lead.last_contact_at) : undefined,
         notes: lead.notes,
         pipelineStage: lead.pipeline_stage as LeadPipelineStage,
-        motivoDesqualificacao: lead.disqualification_reason
+        // TODO: Descomentar quando a coluna existir
+        // motivoDesqualificacao: lead.disqualification_reason
       }))
     } catch (error) {
       console.error('Erro ao buscar leads para contatos:', error)
@@ -411,7 +413,8 @@ class LeadsService {
         .from('leads')
         .update({
           qualification_status: 'desqualificado',
-          disqualification_reason: disqualificationReason,
+          // TODO: Adicionar coluna disqualification_reason
+          // disqualification_reason: disqualificationReason,
           disqualified_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
@@ -527,26 +530,10 @@ class LeadsService {
   // Estatísticas de desqualificação
   async getDisqualificationStats(): Promise<Record<string, number>> {
     try {
-      const { data: leads, error } = await supabase
-        .from('leads')
-        .select('disqualification_reason')
-        .eq('qualification_status', 'desqualificado')
-        .not('disqualification_reason', 'is', null)
-
-      if (error) {
-        console.error('Erro ao buscar estatísticas de desqualificação:', error)
-        return {}
-      }
-
-      const stats: Record<string, number> = {}
-      leads.forEach(lead => {
-        const reason = lead.disqualification_reason
-        if (reason) {
-          stats[reason] = (stats[reason] || 0) + 1
-        }
-      })
-
-      return stats
+      // TODO: Adicionar coluna disqualification_reason na tabela leads
+      // Por enquanto, retornar dados vazios
+      console.warn('Coluna disqualification_reason não existe na tabela leads')
+      return {}
     } catch (error) {
       console.error('Erro ao buscar estatísticas de desqualificação:', error)
       return {}
@@ -582,28 +569,9 @@ class LeadsService {
   // Estatísticas de desqualificação por período
   async getDisqualificationStatsByPeriod(startDate: Date, endDate: Date): Promise<Record<string, number>> {
     try {
-      const { data: leads, error } = await supabase
-        .from('leads')
-        .select('disqualification_reason')
-        .eq('qualification_status', 'desqualificado')
-        .gte('disqualified_at', startDate.toISOString())
-        .lte('disqualified_at', endDate.toISOString())
-        .not('disqualification_reason', 'is', null)
-
-      if (error) {
-        console.error('Erro ao buscar estatísticas de desqualificação por período:', error)
-        return {}
-      }
-
-      const stats: Record<string, number> = {}
-      leads.forEach(lead => {
-        const reason = lead.disqualification_reason
-        if (reason) {
-          stats[reason] = (stats[reason] || 0) + 1
-        }
-      })
-
-      return stats
+      // TODO: Adicionar coluna disqualification_reason na tabela leads
+      console.warn('Coluna disqualification_reason não existe na tabela leads')
+      return {}
     } catch (error) {
       console.error('Erro ao buscar estatísticas de desqualificação por período:', error)
       return {}

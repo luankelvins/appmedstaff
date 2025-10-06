@@ -42,37 +42,24 @@ const QuickStatsWidget: React.FC = () => {
         setLoading(true)
         setError(null)
         
-        // Buscar dados reais do widgetDataService
-        const [dashboardStats, financialMetrics, systemStats] = await Promise.all([
-          dashboardService.getDashboardData(),
-          widgetDataService.getFinancialMetrics(2),
-          widgetDataService.getSystemStats()
-        ])
+        // Buscar dados reais do banco
+        const dashboardData = await dashboardService.getDashboardData()
         
-        // Calcular tendências baseadas em dados reais
-        const currentMonth = new Date().getMonth()
-        const previousMonth = currentMonth - 1
+        // Buscar dados do período anterior para comparação
+        // Por enquanto, se não houver dados no banco, mostrar zeros (sem simulação)
+        const enhancedStats = {
+          totalClients: dashboardData.stats.totalClients || 0,
+          previousClients: 0, // TODO: implementar busca do mês anterior
+          completedTasks: dashboardData.stats.completedTasks || 0,
+          previousCompletedTasks: 0, // TODO: implementar busca do mês anterior
+          pendingTasks: dashboardData.stats.pendingTasks || 0,
+          previousPendingTasks: 0, // TODO: implementar busca do mês anterior
+          monthlyRevenue: dashboardData.stats.monthlyRevenue || 0,
+          previousRevenue: 0, // TODO: implementar busca do mês anterior
+          efficiency: 0,
+          previousEfficiency: 0
+        }
         
-        // Calcular receita total dos últimos 2 meses
-         const currentRevenue = financialMetrics[0]?.revenue || 0
-         const previousRevenue = financialMetrics[1]?.revenue || 0
-         
-         // Calcular eficiência baseada nas métricas do sistema
-         const efficiency = systemStats ? 
-           Math.round(((100 - systemStats.cpu_avg) + (100 - systemStats.memory_avg)) / 2 * 100) / 100 : 85.0
-         
-         const enhancedStats = {
-           totalClients: dashboardStats.stats.totalClients || 0,
-           previousClients: Math.floor((dashboardStats.stats.totalClients || 0) * 0.92), // Simulando crescimento de 8%
-           completedTasks: dashboardStats.stats.completedTasks || 0,
-           previousCompletedTasks: Math.floor((dashboardStats.stats.completedTasks || 0) * 0.85),
-           pendingTasks: dashboardStats.stats.pendingTasks || 0,
-           previousPendingTasks: Math.floor((dashboardStats.stats.pendingTasks || 0) * 1.15),
-           monthlyRevenue: currentRevenue,
-           previousRevenue: previousRevenue,
-           efficiency: efficiency,
-           previousEfficiency: efficiency - 3.2
-         }
         setStats(enhancedStats)
       } catch (error) {
         console.error('Erro ao carregar estatísticas:', error)
@@ -319,88 +306,36 @@ const TasksWidget: React.FC = () => {
           estimatedHours: task.estimatedHours || 4,
           spentHours: task.actualHours || 0
         }))
-        
-        // Fallback para dados de demonstração se não houver tarefas
-        const mockTasks = enrichedTasks.length > 0 ? enrichedTasks : [
-          {
-            id: '1',
-            title: 'Revisar proposta comercial',
-            category: 'Vendas',
-            priority: 'high',
-            status: 'in_progress',
-            progress: 75,
-            dueDate: new Date().toISOString(),
-            assignee: 'Ana Silva',
-            estimatedHours: 4,
-            spentHours: 3
-          },
-          {
-            id: '2',
-            title: 'Implementar nova funcionalidade',
-            category: 'Desenvolvimento',
-            priority: 'medium',
-            status: 'in_progress',
-            progress: 45,
-            dueDate: new Date(Date.now() + 86400000).toISOString(),
-            assignee: 'Carlos Santos',
-            estimatedHours: 8,
-            spentHours: 3.5
-          },
-          {
-            id: '3',
-            title: 'Reunião com cliente',
-            category: 'Reunião',
-            priority: 'high',
-            status: 'pending',
-            progress: 0,
-            dueDate: new Date(Date.now() - 86400000).toISOString(),
-            assignee: 'Maria Oliveira',
-            estimatedHours: 2,
-            spentHours: 0
-          },
-          {
-            id: '4',
-            title: 'Atualizar documentação',
-            category: 'Documentação',
-            priority: 'low',
-            status: 'in_progress',
-            progress: 90,
-            dueDate: new Date(Date.now() + 172800000).toISOString(),
-            assignee: 'João Costa',
-            estimatedHours: 3,
-            spentHours: 2.7
-          }
-        ]
 
         // Aplicar filtros
-        let filteredTasks = mockTasks
+        let filteredTasks = enrichedTasks
         const today = new Date().toDateString()
         
         switch (filter) {
           case 'high':
-            filteredTasks = mockTasks.filter(task => task.priority === 'high')
+            filteredTasks = enrichedTasks.filter(task => task.priority === 'high')
             break
           case 'today':
-            filteredTasks = mockTasks.filter(task => 
+            filteredTasks = enrichedTasks.filter(task => 
               new Date(task.dueDate).toDateString() === today
             )
             break
           case 'overdue':
-            filteredTasks = mockTasks.filter(task => 
+            filteredTasks = enrichedTasks.filter(task => 
               new Date(task.dueDate) < new Date() && task.status !== 'completed'
             )
             break
           default:
-            filteredTasks = mockTasks
+            filteredTasks = enrichedTasks
         }
 
         setTasks(filteredTasks)
         
         // Calcular estatísticas
-        const totalTasks = mockTasks.length
-        const completedTasks = mockTasks.filter(t => t.status === 'completed').length
-        const pendingTasks = mockTasks.filter(t => t.status === 'pending').length
-        const overdueTasks = mockTasks.filter(t => 
+        const totalTasks = enrichedTasks.length
+        const completedTasks = enrichedTasks.filter(t => t.status === 'completed').length
+        const pendingTasks = enrichedTasks.filter(t => t.status === 'pending').length
+        const overdueTasks = enrichedTasks.filter(t => 
           new Date(t.dueDate) < new Date() && t.status !== 'completed'
         ).length
 
@@ -654,113 +589,31 @@ const NotificationsWidget: React.FC = () => {
           actionUrl: notification.action_url || null,
           sender: notification.sender || 'Sistema'
         }))
-        
-        // Fallback para dados de demonstração se não houver notificações
-        const mockNotifications = enrichedNotifications.length > 0 ? enrichedNotifications : [
-          {
-            id: '1',
-            title: 'Nova tarefa atribuída',
-            message: 'Você foi designado para revisar a proposta comercial do cliente ABC Corp.',
-            type: 'task',
-            category: 'work',
-            priority: 'high',
-            read: false,
-            createdAt: new Date(Date.now() - 300000).toISOString(), // 5 min ago
-            actionRequired: true,
-            actionUrl: '/tasks/123',
-            sender: 'Ana Silva'
-          },
-          {
-            id: '2',
-            title: 'Sistema atualizado',
-            message: 'O sistema foi atualizado para a versão 2.1.0 com novas funcionalidades.',
-            type: 'system',
-            category: 'system',
-            priority: 'medium',
-            read: false,
-            createdAt: new Date(Date.now() - 1800000).toISOString(), // 30 min ago
-            actionRequired: false,
-            actionUrl: null,
-            sender: 'Sistema'
-          },
-          {
-            id: '3',
-            title: 'Reunião em 15 minutos',
-            message: 'Lembrete: Reunião de alinhamento da equipe às 14:30.',
-            type: 'reminder',
-            category: 'calendar',
-            priority: 'high',
-            read: false,
-            createdAt: new Date(Date.now() - 900000).toISOString(), // 15 min ago
-            actionRequired: true,
-            actionUrl: '/calendar/event/456',
-            sender: 'Calendário'
-          },
-          {
-            id: '4',
-            title: 'Novo comentário',
-            message: 'Carlos Santos comentou no projeto "Desenvolvimento Mobile".',
-            type: 'comment',
-            category: 'social',
-            priority: 'low',
-            read: true,
-            createdAt: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
-            actionRequired: false,
-            actionUrl: '/projects/789#comment-123',
-            sender: 'Carlos Santos'
-          },
-          {
-            id: '5',
-            title: 'Backup concluído',
-            message: 'Backup automático dos dados foi concluído com sucesso.',
-            type: 'success',
-            category: 'system',
-            priority: 'low',
-            read: true,
-            createdAt: new Date(Date.now() - 7200000).toISOString(), // 2 hours ago
-            actionRequired: false,
-            actionUrl: null,
-            sender: 'Sistema'
-          },
-          {
-            id: '6',
-            title: 'Falha na sincronização',
-            message: 'Erro ao sincronizar dados com o servidor externo. Tentativa automática em 10 minutos.',
-            type: 'error',
-            category: 'system',
-            priority: 'high',
-            read: false,
-            createdAt: new Date(Date.now() - 600000).toISOString(), // 10 min ago
-            actionRequired: true,
-            actionUrl: '/system/sync-status',
-            sender: 'Sistema'
-          }
-        ]
 
         // Aplicar filtros
-        let filteredNotifications = mockNotifications
+        let filteredNotifications = enrichedNotifications
         
         switch (filter) {
           case 'unread':
-            filteredNotifications = mockNotifications.filter(n => !n.read)
+            filteredNotifications = enrichedNotifications.filter(n => !n.read)
             break
           case 'important':
-            filteredNotifications = mockNotifications.filter(n => n.priority === 'high')
+            filteredNotifications = enrichedNotifications.filter(n => n.priority === 'high')
             break
           case 'system':
-            filteredNotifications = mockNotifications.filter(n => n.category === 'system')
+            filteredNotifications = enrichedNotifications.filter(n => n.category === 'system')
             break
           default:
-            filteredNotifications = mockNotifications
+            filteredNotifications = enrichedNotifications
         }
 
         setNotifications(filteredNotifications.slice(0, 8))
         
         // Calcular estatísticas
-        const totalNotifications = mockNotifications.length
-        const unreadNotifications = mockNotifications.filter(n => !n.read).length
-        const importantNotifications = mockNotifications.filter(n => n.priority === 'high').length
-        const systemNotifications = mockNotifications.filter(n => n.category === 'system').length
+        const totalNotifications = enrichedNotifications.length
+        const unreadNotifications = enrichedNotifications.filter(n => !n.read).length
+        const importantNotifications = enrichedNotifications.filter(n => n.priority === 'high').length
+        const systemNotifications = enrichedNotifications.filter(n => n.category === 'system').length
 
         setStats({
           total: totalNotifications,
@@ -1158,15 +1011,23 @@ const CalendarWidget: React.FC = () => {
   useEffect(() => {
     const loadEvents = async () => {
       try {
-        // Simular eventos do calendário
-        const mockEvents = [
-          { id: 1, title: 'Reunião com cliente', time: '09:00', type: 'meeting' },
-          { id: 2, title: 'Entrega de projeto', time: '14:00', type: 'deadline' },
-          { id: 3, title: 'Call da equipe', time: '16:30', type: 'meeting' }
-        ]
-        setEvents(mockEvents)
+        // Buscar tarefas do dia como eventos
+        const taskResponse = await taskService.getTasks(undefined, undefined, 1, 10)
+        const today = new Date().toDateString()
+        
+        const todayTasks = taskResponse.tasks
+          .filter((task: any) => task.dueDate && new Date(task.dueDate).toDateString() === today)
+          .map((task: any) => ({
+            id: task.id,
+            title: task.title,
+            time: new Date(task.dueDate).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+            type: task.priority === 'high' ? 'deadline' : 'meeting'
+          }))
+        
+        setEvents(todayTasks)
       } catch (error) {
         console.error('Erro ao carregar eventos:', error)
+        setEvents([])
       } finally {
         setLoading(false)
       }
@@ -1221,15 +1082,12 @@ const ChatWidget: React.FC = () => {
   useEffect(() => {
     const loadMessages = async () => {
       try {
-        // Simular mensagens recentes
-        const mockMessages = [
-          { id: 1, user: 'João Silva', message: 'Projeto finalizado!', time: '10:30', unread: true },
-          { id: 2, user: 'Maria Santos', message: 'Preciso de ajuda com...', time: '09:15', unread: true },
-          { id: 3, user: 'Pedro Costa', message: 'Reunião confirmada', time: '08:45', unread: false }
-        ]
-        setMessages(mockMessages)
+        // TODO: Implementar serviço de chat real
+        // Por enquanto, mostra lista vazia até termos o serviço
+        setMessages([])
       } catch (error) {
         console.error('Erro ao carregar mensagens:', error)
+        setMessages([])
       } finally {
         setLoading(false)
       }

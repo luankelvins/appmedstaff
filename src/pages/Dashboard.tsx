@@ -7,8 +7,12 @@ export const Dashboard = () => {
   const { user } = useAuth();
   const { hasPermission } = usePermissions();
 
+  console.log('[Dashboard] Renderizado com usuário:', user);
+  console.log('[Dashboard] Permissão dashboard.view:', hasPermission('dashboard.view'));
+
   // Verificar se o usuário tem permissão para acessar o dashboard
   if (!hasPermission('dashboard.view')) {
+    console.log('[Dashboard] Acesso negado!');
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -19,6 +23,7 @@ export const Dashboard = () => {
     );
   }
 
+  console.log('[Dashboard] Renderizando MainDashboard');
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="p-6">

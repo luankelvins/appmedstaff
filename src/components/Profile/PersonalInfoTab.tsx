@@ -1,10 +1,11 @@
-import React, { useState } from 'react'
-import { Save, X, Edit3, AlertCircle } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { Save, X, Edit3, AlertCircle, Search } from 'lucide-react'
 import { UserProfile, ProfileUpdateRequest, UserAddress } from '../../types/profile'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { personalInfoSchema } from '../../utils/validationSchemas'
-import { useDocumentValidation } from '../../hooks/useFormValidation'
+import { usePhoneValidation, useCEPValidation } from '../../hooks/useFormValidation'
+import { useViaCEP } from '../../hooks/useViaCEP'
 
 interface PersonalInfoTabProps {
   profile: UserProfile
@@ -26,7 +27,9 @@ export const PersonalInfoTab: React.FC<PersonalInfoTabProps> = ({
   canEdit = true
 }) => {
   const [isEditing, setIsEditing] = useState(false)
-  const { formatPhone, formatCEP } = useDocumentValidation()
+  const { formatPhone } = usePhoneValidation()
+  const { formatCEP } = useCEPValidation()
+  const { fetchAddress, loading: loadingCEP, error: cepError, clearError } = useViaCEP()
 
   const {
     register,
@@ -74,10 +77,32 @@ export const PersonalInfoTab: React.FC<PersonalInfoTabProps> = ({
     setValue('phone', formatted, { shouldValidate: true })
   }
 
-  const handleCEPChange = (value: string) => {
+  const handleCEPChange = async (value: string) => {
     const formatted = formatCEP(value)
     setValue('address.zipCode', formatted, { shouldValidate: true })
+
+    // Buscar endereço automaticamente quando o CEP estiver completo (8 dígitos)
+    const cleanCEP = value.replace(/\D/g, '')
+    if (cleanCEP.length === 8) {
+      const addressData = await fetchAddress(formatted)
+      
+      if (addressData) {
+        // Preencher os campos automaticamente
+        setValue('address.street', addressData.street, { shouldValidate: true })
+        setValue('address.neighborhood', addressData.neighborhood, { shouldValidate: true })
+        setValue('address.city', addressData.city, { shouldValidate: true })
+        setValue('address.state', addressData.state, { shouldValidate: true })
+      }
+    }
   }
+
+  // Limpar erro do CEP quando o usuário começar a digitar novamente
+  useEffect(() => {
+    if (cepError) {
+      const timeout = setTimeout(() => clearError(), 3000)
+      return () => clearTimeout(timeout)
+    }
+  }, [cepError, clearError])
 
   const watchedValues = watch()
 
@@ -222,19 +247,38 @@ export const PersonalInfoTab: React.FC<PersonalInfoTabProps> = ({
               </label>
               {isEditing ? (
                 <div>
-                  <input
-                    type="text"
-                    {...register('address.zipCode')}
-                    onChange={(e) => handleCEPChange(e.target.value)}
-                    placeholder="12345-678"
-                    className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
-                      errors.address?.zipCode ? 'border-red-300' : 'border-gray-300'
-                    }`}
-                  />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      {...register('address.zipCode')}
+                      onChange={(e) => handleCEPChange(e.target.value)}
+                      placeholder="12345-678"
+                      maxLength={9}
+                      className={`w-full px-3 py-2 pr-10 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
+                        errors.address?.zipCode || cepError ? 'border-red-300' : 'border-gray-300'
+                      }`}
+                    />
+                    {loadingCEP && (
+                      <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+                        <Search className="w-5 h-5 text-blue-500 animate-pulse" />
+                      </div>
+                    )}
+                  </div>
                   {errors.address?.zipCode && (
                     <p className="mt-1 text-sm text-red-600 flex items-center">
                       <AlertCircle className="w-4 h-4 mr-1" />
                       {errors.address.zipCode.message}
+                    </p>
+                  )}
+                  {cepError && !errors.address?.zipCode && (
+                    <p className="mt-1 text-sm text-red-600 flex items-center">
+                      <AlertCircle className="w-4 h-4 mr-1" />
+                      {cepError}
+                    </p>
+                  )}
+                  {!loadingCEP && !cepError && !errors.address?.zipCode && watch('address.zipCode')?.replace(/\D/g, '').length === 8 && (
+                    <p className="mt-1 text-sm text-green-600">
+                      ✓ Endereço encontrado
                     </p>
                   )}
                 </div>

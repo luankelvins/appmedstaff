@@ -212,8 +212,8 @@ export class RealtimeService {
     const start = Date.now()
     
     try {
-      // Fazer uma query simples para testar latência
-      await supabase.from('profiles').select('id').limit(1)
+      // Fazer uma query simples para testar latência (usar tabela que existe)
+      await supabase.from('employees').select('id').limit(1)
       const latency = Date.now() - start
       
       this.connectionStatus.latency = latency

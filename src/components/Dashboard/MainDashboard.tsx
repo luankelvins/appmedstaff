@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Settings, Plus, LayoutGrid, RefreshCw, X, Grid3X3, Palette, Monitor, Save } from 'lucide-react'
 import { AVAILABLE_WIDGETS, WidgetConfig } from './widgets'
+import { useAuth } from '../../contexts/AuthContext'
 
 interface DashboardWidget {
   id: string
@@ -33,6 +34,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
   userRole = 'analista',
   className = ''
 }) => {
+  const { user, hasPermission } = useAuth()
   const [isLoading, setIsLoading] = useState(true)
   const [widgets, setWidgets] = useState<DashboardWidget[]>([])
   const [showAddWidget, setShowAddWidget] = useState(false)
@@ -50,27 +52,21 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
     refreshInterval: 30
   })
 
-  // Mock user permissions
-  const mockUserPermissions = [
-    'dashboard.view',
-    'tasks.view',
-    'notifications.view',
-    'chat.view',
-    'finance.dre.view',
-    'activities.commercial.*',
-    'activities.operational.*'
-  ]
-
-  // Filtrar widgets baseado nas permissões do usuário
+  // Filtrar widgets baseado nas permissões REAIS do usuário
   const availableWidgets = AVAILABLE_WIDGETS.filter(widget => {
     if (!widget.permissions || widget.permissions.length === 0) return true
+    
+    // Super admin tem acesso a tudo
+    if (user?.role === 'super_admin' || user?.permissions?.includes('*')) {
+      return true
+    }
     
     return widget.permissions.some(permission => {
       if (permission.endsWith('*')) {
         const basePermission = permission.slice(0, -1)
-        return mockUserPermissions.some(userPerm => userPerm.startsWith(basePermission))
+        return user?.permissions?.some(userPerm => userPerm.startsWith(basePermission)) || false
       }
-      return mockUserPermissions.includes(permission)
+      return hasPermission(permission)
     })
   })
 

@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
+import { Header } from './Header'
 import { MobileNavigation } from './MobileNavigation'
 
 const Layout: React.FC = () => {
@@ -15,11 +16,17 @@ const Layout: React.FC = () => {
       <MobileNavigation isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
       {/* Main Content */}
-      <main className="lg:pl-64">
-        <div className="px-4 sm:px-6 lg:px-8 py-8">
-          <Outlet />
-        </div>
-      </main>
+      <div className="lg:pl-64">
+        {/* Header */}
+        <Header onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} isSidebarOpen={sidebarOpen} />
+        
+        {/* Page Content */}
+        <main>
+          <div className="px-4 sm:px-6 lg:px-8 py-8">
+            <Outlet />
+          </div>
+        </main>
+      </div>
     </div>
   )
 }

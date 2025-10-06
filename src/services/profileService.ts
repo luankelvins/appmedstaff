@@ -9,6 +9,7 @@ import {
   TrustedDevice
 } from '../types/profile'
 import { employeeIntegrationService } from './employeeIntegrationService'
+import { supabase } from '../config/supabase'
 
 // Mock data para demonstração
 const mockProfile: UserProfile = {
@@ -186,42 +187,150 @@ const mockStats: ProfileStats = {
 // Serviços de API
 export const profileService = {
   async getProfile(): Promise<UserProfile> {
-    await new Promise(resolve => setTimeout(resolve, 300))
-    
-    // Simular obtenção do email do usuário logado (em produção viria do contexto de autenticação)
-    const currentUserEmail = mockProfile.email
-    
     try {
-      // Tentar integrar com dados do membro do time interno
-      const integratedProfile = await employeeIntegrationService.getIntegratedProfile(currentUserEmail)
-      return integratedProfile
+      // Obter usuário autenticado do Supabase
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      
+      if (authError || !user) {
+        console.error('Erro ao obter usuário autenticado:', authError)
+        throw new Error('Usuário não autenticado')
+      }
+
+      // Buscar dados do employee pelo ID do usuário
+      const { data: employee, error: employeeError } = await supabase
+        .from('employees')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle()
+
+      if (employeeError) {
+        console.error('Erro ao buscar employee:', employeeError)
+        throw employeeError
+      }
+
+      if (!employee) {
+        // Se não encontrou employee, usar email do auth para buscar
+        const integratedProfile = await employeeIntegrationService.getIntegratedProfile(user.email || '')
+        return integratedProfile
+      }
+
+      // Mapear dados do employee para UserProfile
+      const profile: UserProfile = {
+        id: employee.id,
+        name: employee.dados_pessoais?.nome_completo || user.email?.split('@')[0] || 'Usuário',
+        email: employee.email || user.email || '',
+        avatar: employee.dados_pessoais?.foto || undefined,
+        phone: employee.dados_pessoais?.telefone || employee.dados_pessoais?.contato?.telefone || undefined,
+        document: employee.dados_pessoais?.cpf || undefined,
+        birthDate: employee.dados_pessoais?.data_nascimento || undefined,
+        address: employee.dados_pessoais?.endereco ? {
+          street: employee.dados_pessoais.endereco.logradouro || '',
+          number: employee.dados_pessoais.endereco.numero || '',
+          complement: employee.dados_pessoais.endereco.complemento || '',
+          neighborhood: employee.dados_pessoais.endereco.bairro || '',
+          city: employee.dados_pessoais.endereco.cidade || '',
+          state: employee.dados_pessoais.endereco.estado || '',
+          zipCode: employee.dados_pessoais.endereco.cep || '',
+          country: employee.dados_pessoais.endereco.pais || 'Brasil'
+        } : undefined,
+        role: employee.dados_profissionais?.cargo || 'Colaborador',
+        department: employee.dados_profissionais?.departamento || 'Geral',
+        position: employee.dados_profissionais?.cargo || 'Colaborador',
+        hireDate: employee.dados_profissionais?.data_admissao || undefined,
+        permissions: employee.dados_profissionais?.nivel_acesso === 'superadmin' 
+          ? ['*'] 
+          : ['dashboard.view'],
+        preferences: {
+          theme: 'light',
+          language: 'pt-BR',
+          timezone: 'America/Sao_Paulo',
+          dateFormat: 'DD/MM/YYYY',
+          timeFormat: '24h',
+          notifications: {
+            email: { enabled: true, frequency: 'daily', types: { tasks: true, mentions: true, updates: true, security: true, marketing: false } },
+            push: { enabled: true, types: { tasks: true, mentions: true, updates: true, security: true, marketing: false } },
+            sms: { enabled: false, types: { tasks: false, mentions: false, updates: false, security: true, marketing: false } }
+          }
+        },
+        security: {
+          twoFactorEnabled: false,
+          lastPasswordChange: employee.updated_at,
+          trustedDevices: [],
+          loginAlerts: true
+        },
+        createdAt: employee.created_at,
+        updatedAt: employee.updated_at
+      }
+
+      return profile
     } catch (error) {
-      console.warn('Não foi possível integrar dados do membro do time interno:', error)
-      // Retornar perfil padrão se a integração falhar
-      return { ...mockProfile }
+      console.error('Erro ao buscar perfil:', error)
+      throw error
     }
   },
 
   async updateProfile(data: ProfileUpdateRequest): Promise<UserProfile> {
-    await new Promise(resolve => setTimeout(resolve, 500))
-    
-    const updatedProfile: UserProfile = {
-      ...mockProfile,
-      ...(data.name && { name: data.name }),
-      ...(data.email && { email: data.email }),
-      ...(data.phone && { phone: data.phone }),
-      ...(data.birthDate && { birthDate: data.birthDate }),
-      ...(data.avatar && { avatar: data.avatar }),
-      address: data.address ? { ...mockProfile.address!, ...data.address } : mockProfile.address,
-      preferences: data.preferences ? { ...mockProfile.preferences, ...data.preferences } : mockProfile.preferences,
-      security: data.security ? { ...mockProfile.security, ...data.security } : mockProfile.security,
-      updatedAt: new Date().toISOString()
-    }
+    try {
+      // Buscar o perfil atual do usuário logado (usando AuthContext no futuro)
+      const currentProfile = await this.getProfile()
+      
+      // Preparar dados para atualizar na tabela employees
+      const updateData: any = {}
 
-    // Simular atualização dos dados mock
-    Object.assign(mockProfile, updatedProfile)
-    
-    return updatedProfile
+      // Dados pessoais
+      if (data.name || data.phone || data.birthDate) {
+        updateData.dados_pessoais = {
+          ...(currentProfile as any).dados_pessoais,
+          ...(data.name && { nome_completo: data.name }),
+          ...(data.phone && { 
+            telefone: data.phone,
+            contato: { telefone: data.phone }
+          }),
+          ...(data.birthDate && { data_nascimento: data.birthDate })
+        }
+      }
+
+      // Endereço
+      if (data.address) {
+        updateData.dados_pessoais = {
+          ...updateData.dados_pessoais || (currentProfile as any).dados_pessoais,
+          endereco: {
+            cep: data.address.zipCode || '',
+            logradouro: data.address.street || '',
+            numero: data.address.number || '',
+            complemento: data.address.complement || '',
+            bairro: data.address.neighborhood || '',
+            cidade: data.address.city || '',
+            estado: data.address.state || '',
+            pais: data.address.country || 'Brasil'
+          }
+        }
+      }
+
+      // Atualizar no Supabase
+      const { data: updatedEmployee, error } = await supabase
+        .from('employees')
+        .update(updateData)
+        .eq('id', currentProfile.id)
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Erro ao atualizar perfil no Supabase:', error)
+        throw new Error('Erro ao atualizar perfil')
+      }
+
+      // Retornar perfil atualizado integrado
+      const updatedProfile = await employeeIntegrationService.getIntegratedProfile(
+        data.email || currentProfile.email,
+        currentProfile
+      )
+
+      return updatedProfile
+    } catch (error) {
+      console.error('Erro ao atualizar perfil:', error)
+      throw error
+    }
   },
 
   async changePassword(data: PasswordChangeRequest): Promise<void> {

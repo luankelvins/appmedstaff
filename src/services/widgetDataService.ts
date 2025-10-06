@@ -259,11 +259,21 @@ export class WidgetDataService {
         .order('date', { ascending: false })
         .limit(10)
 
-      if (error) throw error
+      if (error) {
+        // Tabela não existe - retornar array vazio
+        if (error.code === 'PGRST205' || error.code === '404') {
+          return []
+        }
+        throw error
+      }
       return data || []
-    } catch (error) {
+    } catch (error: any) {
+      // Silenciar erro se tabela não existe
+      if (error?.code === 'PGRST205' || error?.code === '404') {
+        return []
+      }
       console.error('Erro ao buscar performance da equipe:', error)
-      throw error
+      return []
     }
   }
 
@@ -427,9 +437,19 @@ export class WidgetDataService {
         .limit(1)
         .single()
 
-      if (error) throw error
+      if (error) {
+        // Tabela não existe - retornar null silenciosamente
+        if (error.code === 'PGRST205' || error.code === '404' || error.code === 'PGRST116') {
+          return null
+        }
+        throw error
+      }
       return data
-    } catch (error) {
+    } catch (error: any) {
+      // Silenciar erro se tabela não existe
+      if (error?.code === 'PGRST205' || error?.code === '404' || error?.code === 'PGRST116') {
+        return null
+      }
       console.error('Erro ao buscar métricas de RH:', error)
       return null
     }
@@ -449,11 +469,21 @@ export class WidgetDataService {
         .gte('date', startDate.toISOString().split('T')[0])
         .order('date', { ascending: false })
 
-      if (error) throw error
+      if (error) {
+        // Tabela não existe - retornar array vazio
+        if (error.code === 'PGRST205' || error.code === '404') {
+          return []
+        }
+        throw error
+      }
       return data || []
-    } catch (error) {
+    } catch (error: any) {
+      // Silenciar erro se tabela não existe
+      if (error?.code === 'PGRST205' || error?.code === '404') {
+        return []
+      }
       console.error('Erro ao buscar dados de presença:', error)
-      throw error
+      return []
     }
   }
 
@@ -468,11 +498,21 @@ export class WidgetDataService {
         .order('date', { ascending: false })
         .limit(50)
 
-      if (error) throw error
+      if (error) {
+        // Tabela não existe - retornar array vazio
+        if (error.code === 'PGRST205' || error.code === '404') {
+          return []
+        }
+        throw error
+      }
       return data || []
-    } catch (error) {
+    } catch (error: any) {
+      // Silenciar erro se tabela não existe
+      if (error?.code === 'PGRST205' || error?.code === '404') {
+        return []
+      }
       console.error('Erro ao buscar dados de bem-estar:', error)
-      throw error
+      return []
     }
   }
 
@@ -1067,7 +1107,8 @@ export class WidgetDataService {
    */
   async healthCheck(): Promise<boolean> {
     try {
-      const { error } = await supabase.from('profiles').select('id').limit(1)
+      // Usar tabela employees que existe
+      const { error } = await supabase.from('employees').select('id').limit(1)
       return !error
     } catch (error) {
       console.error('Erro no health check:', error)

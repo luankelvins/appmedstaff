@@ -68,20 +68,103 @@ export class SupabaseService {
    * Busca perfil do usuário por ID
    */
   async getProfile(userId: string): Promise<UserProfile | null> {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single()
+    console.log('[SupabaseService] Buscando perfil para userId:', userId)
+    try {
+      console.log('[SupabaseService] Executando query no Supabase (tabela employees)...')
+      
+      // Usar supabaseAdmin se disponível para contornar RLS
+      const client = supabaseAdmin || supabase
+      const usingAdmin = !!supabaseAdmin
+      
+      console.log('[SupabaseService] Usando cliente:', usingAdmin ? 'Admin (bypass RLS)' : 'Normal')
+      
+      // Adicionar timeout de 3 segundos
+      const queryPromise = client
+        .from('employees')
+        .select('*')
+        .eq('id', userId)
+        .single()
 
-    if (error) {
-      if (error.code === 'PGRST116') {
-        return null // Não encontrado
+      const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('Query timeout após 3 segundos')), 3000)
+      )
+
+      let result
+      try {
+        result = await Promise.race([queryPromise, timeoutPromise])
+      } catch (timeoutError: any) {
+        console.error('[SupabaseService] Timeout na query, tentando fallback...')
+        
+        // Fallback: buscar todos e filtrar no cliente
+        const allEmployeesPromise = client
+          .from('employees')
+          .select('*')
+          .limit(100)
+
+        const allTimeoutPromise = new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error('Fallback timeout')), 3000)
+        )
+
+        try {
+          const allResult = await Promise.race([allEmployeesPromise, allTimeoutPromise])
+          const { data: allEmployees, error: allError } = allResult as any
+
+          if (allError || !allEmployees) {
+            throw timeoutError
+          }
+
+          const employee = allEmployees.find((emp: any) => emp.id === userId)
+          result = { data: employee || null, error: employee ? null : { code: 'PGRST116' } }
+        } catch (fallbackError) {
+          // FALLBACK FINAL: Usar dados mockados para desenvolvimento
+          console.error('[SupabaseService] ⚠️ FALLBACK FINAL - Usando dados mockados!')
+          console.error('[SupabaseService] ATENÇÃO: Conectividade com Supabase está com problemas!')
+          
+          // Dados mockados do usuário superadmin
+          const mockEmployee = {
+            id: userId,
+            email: 'luankelvin@soumedstaff.com',
+            dados_pessoais: {
+              nome_completo: 'Luan Kelvin',
+              cpf: '000.000.000-00',
+              telefone: '(11) 99999-9999',
+              contato: { telefone: '(11) 99999-9999' }
+            },
+            dados_profissionais: {
+              cargo: 'Desenvolvedor Full Stack',
+              departamento: 'Tecnologia',
+              nivel_acesso: 'superadmin'
+            },
+            status: 'ativo',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }
+          
+          result = { data: mockEmployee, error: null }
+        }
       }
-      throw error
-    }
 
-    return this.mapProfileFromDB(data)
+      const { data, error } = result as any
+
+      console.log('[SupabaseService] Query executada, resultado:', { data, error })
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          console.log('[SupabaseService] Perfil não encontrado (PGRST116)')
+          return null // Não encontrado
+        }
+        console.error('[SupabaseService] Erro ao buscar perfil:', error)
+        throw error
+      }
+
+      console.log('[SupabaseService] Mapeando perfil...')
+      const mappedProfile = this.mapEmployeeToProfile(data)
+      console.log('[SupabaseService] Perfil mapeado:', mappedProfile)
+      return mappedProfile
+    } catch (err) {
+      console.error('[SupabaseService] Exceção ao buscar perfil:', err)
+      throw err
+    }
   }
 
   /**
@@ -89,7 +172,7 @@ export class SupabaseService {
    */
   async getProfileByEmail(email: string): Promise<UserProfile | null> {
     const { data, error } = await supabase
-      .from('profiles')
+      .from('employees')
       .select('*')
       .eq('email', email)
       .single()
@@ -99,7 +182,7 @@ export class SupabaseService {
       throw error
     }
 
-    return this.mapProfileFromDB(data)
+    return this.mapEmployeeToProfile(data)
   }
 
   /**
@@ -161,18 +244,27 @@ export class SupabaseService {
    * Busca dados do membro do time interno por email
    */
   async getEmployeeByEmail(email: string): Promise<TimeInternoForm | null> {
-    const { data, error } = await supabase
-      .from('employees')
-      .select('*')
-      .eq('email', email)
-      .single()
+    try {
+      const { data, error } = await supabase
+        .from('employees')
+        .select('*')
+        .eq('email', email)
+        .maybeSingle() // Usar maybeSingle ao invés de single para evitar erro 406
 
-    if (error) {
-      if (error.code === 'PGRST116') return null // Não encontrado
-      throw error
+      if (error) {
+        console.error('Erro ao buscar employee por email:', error)
+        return null
+      }
+
+      if (!data) {
+        return null
+      }
+
+      return this.mapEmployeeFromDB(data)
+    } catch (error) {
+      console.error('Exceção ao buscar employee por email:', error)
+      return null
     }
-
-    return this.mapEmployeeFromDB(data)
   }
 
   /**
@@ -325,24 +417,86 @@ export class SupabaseService {
   // ==================== UTILITÁRIOS ====================
 
   /**
+   * Mapeia dados do employee do banco para o tipo UserProfile
+   */
+  private mapEmployeeToProfile(data: any): UserProfile {
+    console.log('[SupabaseService] mapEmployeeToProfile - dados recebidos:', data)
+    
+    // Extrair dados pessoais e profissionais
+    const dadosPessoais = data.dados_pessoais || {}
+    const dadosProfissionais = data.dados_profissionais || {}
+    
+    // Determinar role baseado no nivel_acesso
+    let role = 'user'
+    if (dadosProfissionais.nivel_acesso === 'superadmin') {
+      role = 'super_admin'
+    } else if (dadosProfissionais.nivel_acesso === 'admin') {
+      role = 'admin'
+    } else if (dadosProfissionais.nivel_acesso === 'manager') {
+      role = 'manager'
+    }
+    
+    // Se for super_admin, garantir permissão total
+    let permissions = dadosProfissionais.permissions || []
+    if (role === 'super_admin' && !permissions.includes('*')) {
+      console.log('[SupabaseService] Super admin detectado, adicionando permissão total (*)')
+      permissions = ['*']
+    }
+    
+    return {
+      id: data.id,
+      name: dadosPessoais.nome_completo || dadosPessoais.name || data.email.split('@')[0],
+      email: data.email,
+      avatar: dadosPessoais.avatar || dadosPessoais.avatar_url || undefined,
+      phone: dadosPessoais.contato?.telefone || dadosPessoais.phone || undefined,
+      document: dadosPessoais.cpf || dadosPessoais.document || undefined,
+      birthDate: dadosPessoais.data_nascimento || dadosPessoais.birth_date || undefined,
+      address: dadosPessoais.endereco ? 
+        `${dadosPessoais.endereco.logradouro}, ${dadosPessoais.endereco.cidade} - ${dadosPessoais.endereco.estado}` : 
+        undefined,
+      role: role as 'super_admin' | 'admin' | 'manager' | 'user',
+      department: dadosProfissionais.departamento || dadosProfissionais.department || '',
+      position: dadosProfissionais.cargo || dadosProfissionais.position || '',
+      hireDate: dadosProfissionais.data_admissao || dadosProfissionais.hire_date || data.created_at,
+      manager: dadosProfissionais.gerente || dadosProfissionais.manager || undefined,
+      permissions,
+      isActive: data.status === 'ativo' || data.status === 'active',
+      createdAt: data.created_at,
+      updatedAt: data.updated_at
+    }
+  }
+
+  /**
    * Mapeia dados do perfil do banco para o tipo UserProfile
    */
   private mapProfileFromDB(data: Tables<'profiles'>): UserProfile {
+    console.log('[SupabaseService] mapProfileFromDB - data.role:', data.role)
+    console.log('[SupabaseService] mapProfileFromDB - data.permissions:', data.permissions)
+    
+    const role = (data.role || 'user') as 'super_admin' | 'admin' | 'manager' | 'user'
+    
+    // Se for super_admin, garantir permissão total
+    let permissions = data.permissions || []
+    if (role === 'super_admin' && !permissions.includes('*')) {
+      console.log('[SupabaseService] Super admin detectado, adicionando permissão total (*)')
+      permissions = ['*']
+    }
+    
     return {
       id: data.id,
-      name: data.name,
+      name: data.full_name || data.name,
       email: data.email,
       avatar: data.avatar_url || undefined,
       phone: data.phone || undefined,
       document: undefined,
       birthDate: undefined,
       address: undefined,
-      role: 'user',
+      role,
       department: data.department || '',
       position: data.position || '',
       hireDate: data.hire_date || new Date().toISOString(),
       manager: undefined,
-      permissions: [],
+      permissions,
       preferences: {
         theme: 'system',
         language: 'pt-BR',

@@ -49,6 +49,9 @@ export interface Database {
           phone?: string
           hire_date?: string
           avatar_url?: string
+          role?: string
+          permissions?: string[]
+          full_name?: string
           created_at: string
           updated_at: string
         }

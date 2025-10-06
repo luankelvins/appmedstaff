@@ -22,95 +22,8 @@ import {
 import { notificationService } from './notificationService';
 import { supabase } from '../config/supabase';
 
-// Mock data para desenvolvimento
-const mockTasks: Task[] = [
-  {
-    id: '1',
-    title: 'Implementar autenticação',
-    description: 'Desenvolver sistema de login e registro de usuários',
-    status: TaskStatus.IN_PROGRESS,
-    priority: TaskPriority.HIGH,
-    assignedTo: 'user1',
-    assignedBy: 'admin',
-    createdBy: 'admin',
-    createdAt: new Date('2024-01-15'),
-    updatedAt: new Date('2024-01-16'),
-    dueDate: new Date('2024-01-25'),
-    tags: ['frontend', 'backend', 'security'],
-    attachments: [],
-    comments: [],
-    estimatedHours: 16,
-    actualHours: 8,
-    category: 'Desenvolvimento',
-    project: 'MedStaff Platform'
-  },
-  {
-    id: '2',
-    title: 'Configurar CI/CD',
-    description: 'Implementar pipeline de integração e deploy contínuo',
-    status: TaskStatus.TODO,
-    priority: TaskPriority.MEDIUM,
-    assignedTo: 'user2',
-    createdBy: 'admin',
-    createdAt: new Date('2024-01-16'),
-    updatedAt: new Date('2024-01-16'),
-    dueDate: new Date('2024-01-30'),
-    tags: ['devops', 'automation'],
-    attachments: [],
-    comments: [],
-    estimatedHours: 12,
-    category: 'DevOps',
-    project: 'MedStaff Platform'
-  },
-  {
-    id: '3',
-    title: 'Revisar documentação',
-    description: 'Atualizar documentação da API e componentes',
-    status: TaskStatus.DONE,
-    priority: TaskPriority.LOW,
-    assignedTo: 'user3',
-    createdBy: 'admin',
-    createdAt: new Date('2024-01-10'),
-    updatedAt: new Date('2024-01-14'),
-    dueDate: new Date('2024-01-20'),
-    completedAt: new Date('2024-01-14'),
-    tags: ['documentation'],
-    attachments: [],
-    comments: [],
-    estimatedHours: 4,
-    actualHours: 3,
-    category: 'Documentação',
-    project: 'MedStaff Platform'
-  }
-];
-
-const mockComments: TaskComment[] = [
-  {
-    id: 'c1',
-    taskId: '1',
-    userId: 'user1',
-    userName: 'João Silva',
-    authorName: 'João Silva',
-    content: 'Iniciando implementação do sistema de autenticação',
-    createdAt: new Date('2024-01-16T10:00:00'),
-    emoji: '🚀'
-  },
-  {
-    id: 'c2',
-    taskId: '1',
-    userId: 'admin',
-    userName: 'Admin',
-    authorName: 'Admin',
-    content: 'Lembre-se de implementar validação de senha forte',
-    createdAt: new Date('2024-01-16T14:30:00'),
-    emoji: '⚠️',
-    attachments: ['security-guidelines.pdf']
-  }
-];
-
 class TaskService {
-  private tasks: Task[] = [...mockTasks];
-  private comments: TaskComment[] = [...mockComments];
+  // Removido: mockTasks e mockComments - agora 100% Supabase
   private recurrenceSeries: RecurrenceSeries[] = [];
 
   // CRUD Operations
@@ -120,89 +33,97 @@ class TaskService {
     page: number = 1,
     limit: number = 10
   ): Promise<TaskListResponse> {
-    console.log('📋 TaskService - getTasks executado');
+    console.log('📋 TaskService - getTasks executado (SUPABASE)');
     
-    let filteredTasks = [...this.tasks];
+    try {
+      // Construir query do Supabase
+      let query = supabase
+        .from('tasks')
+        .select('*', { count: 'exact' });
 
-    // Aplicar filtros
-    if (filter) {
-      if (filter.search) {
-        const searchLower = filter.search.toLowerCase();
-        filteredTasks = filteredTasks.filter(task => 
-          task.title.toLowerCase().includes(searchLower) ||
-          (task.description && task.description.toLowerCase().includes(searchLower))
-        );
-      }
-      
-      if (filter.status && !Array.isArray(filter.status)) {
-        filteredTasks = filteredTasks.filter(task => task.status === filter.status);
-      }
-      
-      if (filter.priority && !Array.isArray(filter.priority)) {
-        filteredTasks = filteredTasks.filter(task => task.priority === filter.priority);
-      }
-      
-      if (filter.assignedTo) {
-        filteredTasks = filteredTasks.filter(task => task.assignedTo === filter.assignedTo);
-      }
-      
-      if (filter.category) {
-        filteredTasks = filteredTasks.filter(task => task.category === filter.category);
-      }
-      
-      if (filter.project) {
-        filteredTasks = filteredTasks.filter(task => task.project === filter.project);
-      }
-    }
-
-    // Aplicar ordenação
-    if (sort) {
-      filteredTasks.sort((a, b) => {
-        let aValue: any, bValue: any;
-        
-        switch (sort.field) {
-          case 'title':
-            aValue = a.title;
-            bValue = b.title;
-            break;
-          case 'createdAt':
-            aValue = a.createdAt;
-            bValue = b.createdAt;
-            break;
-          case 'dueDate':
-            aValue = a.dueDate || new Date(0);
-            bValue = b.dueDate || new Date(0);
-            break;
-          case 'priority':
-            const priorityOrder = { low: 1, medium: 2, high: 3, urgent: 4 };
-            aValue = priorityOrder[a.priority];
-            bValue = priorityOrder[b.priority];
-            break;
-          default:
-            return 0;
+      // Aplicar filtros
+      if (filter) {
+        if (filter.search) {
+          query = query.or(`title.ilike.%${filter.search}%,description.ilike.%${filter.search}%`);
         }
         
-        if (aValue < bValue) return sort.direction === 'asc' ? -1 : 1;
-        if (aValue > bValue) return sort.direction === 'asc' ? 1 : -1;
-        return 0;
-      });
-    }
+        if (filter.status && !Array.isArray(filter.status)) {
+          query = query.eq('status', filter.status);
+        }
+        
+        if (filter.priority && !Array.isArray(filter.priority)) {
+          query = query.eq('priority', filter.priority);
+        }
+        
+        if (filter.assignedTo) {
+          query = query.eq('assigned_to', filter.assignedTo);
+        }
+        
+        if (filter.category) {
+          query = query.eq('category', filter.category);
+        }
+        
+        if (filter.project) {
+          query = query.eq('project', filter.project);
+        }
+      }
 
-    const total = filteredTasks.length;
-    const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
-    
-    // Aplicar paginação
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + limit;
-    const paginatedTasks = filteredTasks.slice(startIndex, endIndex);
-    
-    return {
-      tasks: paginatedTasks,
-      total,
-      page,
-      limit,
-      totalPages
-    };
+      // Aplicar ordenação
+      if (sort) {
+        const field = sort.field === 'dueDate' ? 'due_date' : 
+                     sort.field === 'createdAt' ? 'created_at' : 
+                     sort.field === 'updatedAt' ? 'updated_at' : 
+                     sort.field;
+        query = query.order(field, { ascending: sort.direction === 'asc' });
+      } else {
+        query = query.order('created_at', { ascending: false });
+      }
+
+      // Aplicar paginação
+      const startIndex = (page - 1) * limit;
+      query = query.range(startIndex, startIndex + limit - 1);
+
+      const { data, error, count } = await query;
+
+      if (error) {
+        console.error('Erro ao buscar tasks:', error);
+        return { tasks: [], total: 0, page, limit, totalPages: 0 };
+      }
+
+      // Mapear dados do banco para o formato Task
+      const tasks: Task[] = (data || []).map(dbTask => ({
+        id: dbTask.id,
+        title: dbTask.title,
+        description: dbTask.description || undefined,
+        status: dbTask.status as TaskStatus,
+        priority: dbTask.priority as TaskPriority,
+        assignedTo: dbTask.assigned_to || undefined,
+        assignedBy: dbTask.assigned_by || undefined,
+        createdBy: dbTask.created_by,
+        createdAt: new Date(dbTask.created_at),
+        updatedAt: new Date(dbTask.updated_at),
+        dueDate: dbTask.due_date ? new Date(dbTask.due_date) : undefined,
+        completedAt: dbTask.completed_at ? new Date(dbTask.completed_at) : undefined,
+        tags: dbTask.tags || [],
+        attachments: [],
+        comments: [],
+        estimatedHours: dbTask.estimated_hours || undefined,
+        actualHours: dbTask.actual_hours || undefined,
+        category: dbTask.category || undefined,
+        project: dbTask.project || undefined
+      }));
+
+      return {
+        tasks,
+        total: count || 0,
+        page,
+        limit,
+        totalPages: Math.ceil((count || 0) / limit)
+      };
+    } catch (error) {
+      console.error('Erro ao buscar tasks:', error);
+      return { tasks: [], total: 0, page, limit, totalPages: 0 };
+    }
   }
 
   async getTaskById(id: string): Promise<Task | null> {

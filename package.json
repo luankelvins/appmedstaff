@@ -18,6 +18,7 @@
     "test:integration": "vitest --run src/test/integration/",
     "test:watch": "vitest --watch",
     "test:ci": "vitest --run --coverage",
+    "setup-password-reset": "node scripts/setup-password-reset.mjs",
     "setup-db": "node scripts/create-tables-sql.mjs"
   },
   "dependencies": {
@@ -48,6 +49,7 @@
     "react-query": "^3.39.3",
     "react-router-dom": "^6.20.1",
     "recharts": "^3.2.1",
+    "resend": "^6.1.2",
     "tailwind-merge": "^2.0.0",
     "zod": "^4.1.11",
     "zustand": "^4.4.7"
