@@ -215,6 +215,30 @@ export const profileService = {
       }
 
       // Mapear dados do employee para UserProfile
+      console.log('📋 Employee data:', employee)
+      
+      // Buscar preferências do banco de dados
+      const { data: userPrefs } = await supabase
+        .from('user_preferences')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      const { data: userSecurity } = await supabase
+        .from('user_security_settings')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      const { data: trustedDevices } = await supabase
+        .from('trusted_devices')
+        .select('*')
+        .eq('user_id', user.id)
+
+      console.log('📋 User preferences:', userPrefs)
+      console.log('📋 User security:', userSecurity)
+      console.log('📋 Trusted devices:', trustedDevices)
+      
       const profile: UserProfile = {
         id: employee.id,
         name: employee.dados_pessoais?.nome_completo || user.email?.split('@')[0] || 'Usuário',
@@ -236,32 +260,95 @@ export const profileService = {
         role: employee.dados_profissionais?.cargo || 'Colaborador',
         department: employee.dados_profissionais?.departamento || 'Geral',
         position: employee.dados_profissionais?.cargo || 'Colaborador',
-        hireDate: employee.dados_profissionais?.data_admissao || undefined,
+        hireDate: employee.dados_profissionais?.data_admissao || employee.created_at || new Date().toISOString(),
         permissions: employee.dados_profissionais?.nivel_acesso === 'superadmin' 
           ? ['*'] 
           : ['dashboard.view'],
         preferences: {
-          theme: 'light',
-          language: 'pt-BR',
-          timezone: 'America/Sao_Paulo',
-          dateFormat: 'DD/MM/YYYY',
-          timeFormat: '24h',
-          notifications: {
-            email: { enabled: true, frequency: 'daily', types: { tasks: true, mentions: true, updates: true, security: true, marketing: false } },
-            push: { enabled: true, types: { tasks: true, mentions: true, updates: true, security: true, marketing: false } },
-            sms: { enabled: false, types: { tasks: false, mentions: false, updates: false, security: true, marketing: false } }
+          theme: userPrefs?.theme || 'light',
+          language: userPrefs?.language || 'pt-BR',
+          timezone: userPrefs?.timezone || 'America/Sao_Paulo',
+          dateFormat: userPrefs?.date_format || 'DD/MM/YYYY',
+          timeFormat: userPrefs?.time_format || '24h',
+          notifications: userPrefs?.notifications || {
+            email: {
+              enabled: true,
+              frequency: 'immediate',
+              types: {
+                tasks: true,
+                mentions: true,
+                updates: true,
+                security: true,
+                marketing: false
+              }
+            },
+            push: {
+              enabled: true,
+              types: {
+                tasks: true,
+                mentions: true,
+                chat: true,
+                updates: false
+              }
+            },
+            inApp: {
+              enabled: true,
+              sound: true,
+              desktop: true,
+              types: {
+                tasks: true,
+                mentions: true,
+                chat: true,
+                updates: true,
+                system: true
+              }
+            }
+          },
+          dashboard: userPrefs?.dashboard || {
+            layout: 'grid',
+            widgets: [
+              { id: 'tasks', enabled: true, position: 1, size: 'medium' },
+              { id: 'notifications', enabled: true, position: 2, size: 'small' },
+              { id: 'calendar', enabled: true, position: 3, size: 'large' }
+            ],
+            defaultView: 'dashboard',
+            autoRefresh: true,
+            refreshInterval: 300
+          },
+          privacy: userPrefs?.privacy || {
+            profileVisibility: 'team',
+            showEmail: true,
+            showPhone: false,
+            showBirthDate: false,
+            showAddress: false,
+            allowDirectMessages: true,
+            allowMentions: true,
+            shareActivityStatus: true
           }
         },
         security: {
-          twoFactorEnabled: false,
-          lastPasswordChange: employee.updated_at,
-          trustedDevices: [],
-          loginAlerts: true
+          twoFactorEnabled: userSecurity?.two_factor_enabled || false,
+          lastPasswordChange: userSecurity?.last_password_change || employee.updated_at || new Date().toISOString(),
+          sessionTimeout: userSecurity?.session_timeout || 480,
+          loginNotifications: userSecurity?.login_notifications !== undefined ? userSecurity.login_notifications : true,
+          deviceTrust: {
+            enabled: userSecurity?.device_trust_enabled !== undefined ? userSecurity.device_trust_enabled : true,
+            trustedDevices: (trustedDevices || []).map(d => ({
+              id: d.id,
+              name: d.name,
+              type: d.type,
+              browser: d.browser,
+              os: d.os,
+              lastUsed: d.last_used,
+              trusted: d.trusted
+            }))
+          }
         },
         createdAt: employee.created_at,
         updatedAt: employee.updated_at
       }
 
+      console.log('✅ Profile mapeado:', profile)
       return profile
     } catch (error) {
       console.error('Erro ao buscar perfil:', error)
@@ -271,17 +358,18 @@ export const profileService = {
 
   async updateProfile(data: ProfileUpdateRequest): Promise<UserProfile> {
     try {
-      // Buscar o perfil atual do usuário logado (usando AuthContext no futuro)
+      // Buscar o perfil atual do usuário logado
       const currentProfile = await this.getProfile()
       
       // Preparar dados para atualizar na tabela employees
       const updateData: any = {}
 
       // Dados pessoais
-      if (data.name || data.phone || data.birthDate) {
+      if (data.name || data.phone || data.birthDate || data.avatar) {
         updateData.dados_pessoais = {
           ...(currentProfile as any).dados_pessoais,
           ...(data.name && { nome_completo: data.name }),
+          ...(data.avatar && { foto: data.avatar }),
           ...(data.phone && { 
             telefone: data.phone,
             contato: { telefone: data.phone }
@@ -307,25 +395,111 @@ export const profileService = {
         }
       }
 
-      // Atualizar no Supabase
-      const { data: updatedEmployee, error } = await supabase
-        .from('employees')
-        .update(updateData)
-        .eq('id', currentProfile.id)
-        .select()
-        .single()
+      // Se houver mudanças em dados_pessoais, atualizar no banco
+      if (Object.keys(updateData).length > 0) {
+        console.log('🔄 Atualizando perfil no banco, ID:', currentProfile.id)
+        console.log('🔄 UpdateData:', updateData)
+        
+        const { data: updatedEmployee, error } = await supabase
+          .from('employees')
+          .update(updateData)
+          .eq('id', currentProfile.id)
+          .select()
+          .maybeSingle()
 
-      if (error) {
-        console.error('Erro ao atualizar perfil no Supabase:', error)
-        throw new Error('Erro ao atualizar perfil')
+        if (error) {
+          console.error('❌ Erro ao atualizar perfil no Supabase:', error)
+          throw new Error('Erro ao atualizar perfil: ' + error.message)
+        }
+
+        if (!updatedEmployee) {
+          console.warn('⚠️ Nenhum registro foi atualizado no banco.')
+        }
       }
 
-      // Retornar perfil atualizado integrado
-      const updatedProfile = await employeeIntegrationService.getIntegratedProfile(
-        data.email || currentProfile.email,
-        currentProfile
-      )
+      // Atualizar preferências no banco
+      if (data.preferences) {
+        console.log('🔄 Atualizando preferências no banco')
+        
+        const prefsUpdate: any = {}
+        if (data.preferences.theme) prefsUpdate.theme = data.preferences.theme
+        if (data.preferences.language) prefsUpdate.language = data.preferences.language
+        if (data.preferences.timezone) prefsUpdate.timezone = data.preferences.timezone
+        if (data.preferences.dateFormat) prefsUpdate.date_format = data.preferences.dateFormat
+        if (data.preferences.timeFormat) prefsUpdate.time_format = data.preferences.timeFormat
+        if (data.preferences.notifications) prefsUpdate.notifications = data.preferences.notifications
+        if (data.preferences.dashboard) prefsUpdate.dashboard = data.preferences.dashboard
+        if (data.preferences.privacy) prefsUpdate.privacy = data.preferences.privacy
 
+        const { error: prefsError } = await supabase
+          .from('user_preferences')
+          .upsert({
+            user_id: currentProfile.id,
+            ...prefsUpdate,
+            updated_at: new Date().toISOString()
+          }, {
+            onConflict: 'user_id'
+          })
+
+        if (prefsError) {
+          console.error('⚠️ Erro ao atualizar preferências:', prefsError.message)
+        } else {
+          console.log('✅ Preferências atualizadas')
+        }
+      }
+
+      // Atualizar configurações de segurança no banco
+      if (data.security) {
+        console.log('🔄 Atualizando configurações de segurança no banco')
+        
+        const securityUpdate: any = {}
+        if (data.security.twoFactorEnabled !== undefined) securityUpdate.two_factor_enabled = data.security.twoFactorEnabled
+        if (data.security.sessionTimeout) securityUpdate.session_timeout = data.security.sessionTimeout
+        if (data.security.loginNotifications !== undefined) securityUpdate.login_notifications = data.security.loginNotifications
+        if (data.security.deviceTrust?.enabled !== undefined) securityUpdate.device_trust_enabled = data.security.deviceTrust.enabled
+
+        const { error: securityError } = await supabase
+          .from('user_security_settings')
+          .upsert({
+            user_id: currentProfile.id,
+            ...securityUpdate,
+            updated_at: new Date().toISOString()
+          }, {
+            onConflict: 'user_id'
+          })
+
+        if (securityError) {
+          console.error('⚠️ Erro ao atualizar segurança:', securityError.message)
+        } else {
+          console.log('✅ Configurações de segurança atualizadas')
+        }
+      }
+
+      // Criar perfil atualizado com as mudanças de preferences/security locais
+      const updatedProfile: UserProfile = {
+        ...currentProfile,
+        ...(data.name && { name: data.name }),
+        ...(data.email && { email: data.email }),
+        ...(data.avatar && { avatar: data.avatar }),
+        ...(data.phone && { phone: data.phone }),
+        ...(data.birthDate && { birthDate: data.birthDate }),
+        ...(data.address && { address: { ...currentProfile.address, ...data.address } as any }),
+        ...(data.preferences && { 
+          preferences: { 
+            ...currentProfile.preferences, 
+            ...data.preferences 
+          } 
+        }),
+        ...(data.security && { 
+          security: { 
+            ...currentProfile.security, 
+            ...data.security 
+          } 
+        }),
+        updatedAt: new Date().toISOString()
+      }
+
+      console.log('✅ Perfil atualizado:', updatedProfile)
       return updatedProfile
     } catch (error) {
       console.error('Erro ao atualizar perfil:', error)

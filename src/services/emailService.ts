@@ -13,101 +13,36 @@ export interface EmailTemplate {
 class EmailService {
   /**
    * Enviar email de recuperação de senha
+   * 
+   * DESENVOLVIMENTO: Em dev, apenas loga o link no console
+   * PRODUÇÃO: Deve usar Edge Function ou backend para enviar email
    */
   async sendPasswordResetEmail(email: string, resetToken: string): Promise<boolean> {
     try {
       const resetUrl = `${window.location.origin}/reset-password?token=${resetToken}`
       
-      const emailData: EmailTemplate = {
-        to: email,
-        subject: '🔐 Recuperação de Senha - MedStaff',
-        html: `
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Recuperação de Senha</title>
-            <style>
-              body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }
-              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-              .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
-              .content { background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; }
-              .button { display: inline-block; background: #667eea; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; margin: 20px 0; }
-              .button:hover { background: #5a6fd8; }
-              .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
-              .warning { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 20px 0; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <div class="header">
-                <h1>🔐 Recuperação de Senha</h1>
-                <p>MedStaff - Sistema de Gestão</p>
-              </div>
-              <div class="content">
-                <h2>Olá!</h2>
-                <p>Recebemos uma solicitação para redefinir a senha da sua conta no MedStaff.</p>
-                
-                <p>Para criar uma nova senha, clique no botão abaixo:</p>
-                
-                <div style="text-align: center;">
-                  <a href="${resetUrl}" class="button">Redefinir Minha Senha</a>
-                </div>
-                
-                <div class="warning">
-                  <strong>⚠️ Importante:</strong>
-                  <ul>
-                    <li>Este link expira em 1 hora</li>
-                    <li>Se você não solicitou esta recuperação, ignore este email</li>
-                    <li>Não compartilhe este link com ninguém</li>
-                  </ul>
-                </div>
-                
-                <p>Se o botão não funcionar, copie e cole este link no seu navegador:</p>
-                <p style="word-break: break-all; background: #e9ecef; padding: 10px; border-radius: 5px; font-family: monospace;">${resetUrl}</p>
-              </div>
-              <div class="footer">
-                <p>Este é um email automático, não responda.</p>
-                <p>© 2024 MedStaff. Todos os direitos reservados.</p>
-              </div>
-            </div>
-          </body>
-          </html>
-        `,
-        text: `
-          Recuperação de Senha - MedStaff
-          
-          Olá!
-          
-          Recebemos uma solicitação para redefinir a senha da sua conta no MedStaff.
-          
-          Para criar uma nova senha, acesse: ${resetUrl}
-          
-          IMPORTANTE:
-          - Este link expira em 1 hora
-          - Se você não solicitou esta recuperação, ignore este email
-          - Não compartilhe este link com ninguém
-          
-          © 2024 MedStaff. Todos os direitos reservados.
-        `
+      // MODO DESENVOLVIMENTO - Apenas logar no console
+      if (import.meta.env.DEV || window.location.hostname === 'localhost') {
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+        console.log('📧 EMAIL DE RECUPERAÇÃO DE SENHA (MODO DEV)')
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+        console.log('Para:', email)
+        console.log('Link de Reset:', resetUrl)
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+        console.log('📋 COPIE O LINK ACIMA E COLE NO NAVEGADOR')
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+        
+        // Mostrar também um alert para facilitar
+        alert(`🔐 Email de recuperação simulado!\n\nLink de reset copiado no console.\n\nAcesse: ${resetUrl}`)
+        
+        return true
       }
 
-      const { data, error } = await resend.emails.send({
-        from: 'MedStaff <onboarding@resend.dev>',
-        to: [email],
-        subject: emailData.subject,
-        html: emailData.html,
-        text: emailData.text
-      })
-
-      if (error) {
-        console.error('Erro ao enviar email de recuperação:', error)
-        return false
-      }
-
-      console.log('Email de recuperação enviado:', data)
-      return true
+      // MODO PRODUÇÃO - Chamar Edge Function (TODO: implementar)
+      // Por enquanto, retornar false em produção até implementar Edge Function
+      console.error('❌ Envio de email em produção requer Edge Function')
+      console.error('📋 TODO: Criar Edge Function para envio de emails')
+      return false
     } catch (error) {
       console.error('Erro no serviço de email:', error)
       return false

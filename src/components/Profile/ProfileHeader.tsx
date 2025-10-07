@@ -59,13 +59,13 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
             {profile.avatar ? (
               <img
                 src={profile.avatar}
-                alt={profile.name}
+                alt={profile.name || 'Usuário'}
                 className="w-full h-full object-cover"
               />
             ) : (
               <div className="w-full h-full bg-gray-200 flex items-center justify-center">
                 <span className="text-2xl font-semibold text-gray-600">
-                  {profile.name.charAt(0).toUpperCase()}
+                  {profile.name?.charAt(0).toUpperCase() || '?'}
                 </span>
               </div>
             )}
@@ -96,22 +96,24 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         <div className="flex-1">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">{profile.name}</h1>
-              <p className="text-lg text-gray-600">{profile.role}</p>
-              <p className="text-sm text-gray-500">{profile.department}</p>
+              <h1 className="text-2xl font-bold text-gray-900">{profile.name || 'Usuário'}</h1>
+              <p className="text-lg text-gray-600">{profile.role || 'Sem cargo'}</p>
+              <p className="text-sm text-gray-500">{profile.department || 'Sem departamento'}</p>
             </div>
             
             <div className="mt-4 md:mt-0">
               <div className="flex items-center space-x-4 text-sm text-gray-500">
-                <div className="flex items-center">
-                  <Calendar className="w-4 h-4 mr-1" />
-                  <span>
-                    Desde {formatDistanceToNow(new Date(profile.hireDate), { 
-                      addSuffix: false, 
-                      locale: ptBR 
-                    })}
-                  </span>
-                </div>
+                {profile.hireDate && (
+                  <div className="flex items-center">
+                    <Calendar className="w-4 h-4 mr-1" />
+                    <span>
+                      Desde {formatDistanceToNow(new Date(profile.hireDate), { 
+                        addSuffix: false, 
+                        locale: ptBR 
+                      })}
+                    </span>
+                  </div>
+                )}
                 {profile.manager && (
                   <div className="flex items-center">
                     <Briefcase className="w-4 h-4 mr-1" />
@@ -151,28 +153,28 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="text-center">
             <div className="text-2xl font-bold text-blue-600">
-              {profile.permissions.length}
+              {profile.permissions?.length || 0}
             </div>
             <div className="text-sm text-gray-500">Permissões</div>
           </div>
           
           <div className="text-center">
             <div className="text-2xl font-bold text-green-600">
-              {profile.preferences.dashboard.widgets.filter(w => w.enabled).length}
+              {profile.preferences?.dashboard?.widgets?.filter(w => w.enabled).length || 0}
             </div>
             <div className="text-sm text-gray-500">Widgets Ativos</div>
           </div>
           
           <div className="text-center">
             <div className="text-2xl font-bold text-purple-600">
-              {profile.security.deviceTrust.trustedDevices.length}
+              {profile.security?.deviceTrust?.trustedDevices?.length || 0}
             </div>
             <div className="text-sm text-gray-500">Dispositivos</div>
           </div>
           
           <div className="text-center">
             <div className="text-2xl font-bold text-orange-600">
-              {profile.security.twoFactorEnabled ? 'Ativo' : 'Inativo'}
+              {profile.security?.twoFactorEnabled ? 'Ativo' : 'Inativo'}
             </div>
             <div className="text-sm text-gray-500">2FA</div>
           </div>

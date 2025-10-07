@@ -176,27 +176,47 @@ export const LeadPipelineCard: React.FC<LeadPipelineCardProps> = ({
         </div>
 
         {/* Informações básicas */}
-        <div className="mt-3 grid grid-cols-2 gap-4 text-sm">
-          <div className="flex items-center space-x-2 text-gray-600">
-            <Phone size={14} />
-            <span>{leadCard.leadData.telefone}</span>
-          </div>
-          {leadCard.leadData.email && (
+        <div className="mt-3 space-y-2">
+          <div className="grid grid-cols-2 gap-4 text-sm">
             <div className="flex items-center space-x-2 text-gray-600">
-              <Mail size={14} />
-              <span>{leadCard.leadData.email}</span>
+              <Phone size={14} />
+              <span>{leadCard.leadData.telefone}</span>
+            </div>
+            {leadCard.leadData.email && (
+              <div className="flex items-center space-x-2 text-gray-600">
+                <Mail size={14} />
+                <span>{leadCard.leadData.email}</span>
+              </div>
+            )}
+            {leadCard.leadData.cidade && (
+              <div className="flex items-center space-x-2 text-gray-600">
+                <MapPin size={14} />
+                <span>{leadCard.leadData.cidade}, {leadCard.leadData.estado}</span>
+              </div>
+            )}
+            <div className="flex items-center space-x-2 text-gray-600">
+              <Clock size={14} />
+              <span>No estágio: {formatTime(leadCard.tempoNoEstagio)}</span>
+            </div>
+          </div>
+          
+          {/* Responsável */}
+          {leadCard.responsavelNome && leadCard.responsavelNome !== 'Não atribuído' && (
+            <div className="flex items-center space-x-2 pt-2 border-t border-gray-200">
+              {leadCard.responsavelFoto ? (
+                <img 
+                  src={leadCard.responsavelFoto} 
+                  alt={leadCard.responsavelNome}
+                  className="w-6 h-6 rounded-full object-cover"
+                />
+              ) : (
+                <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center">
+                  <User size={14} className="text-white" />
+                </div>
+              )}
+              <span className="text-sm text-gray-700 font-medium">{leadCard.responsavelNome}</span>
             </div>
           )}
-          {leadCard.leadData.cidade && (
-            <div className="flex items-center space-x-2 text-gray-600">
-              <MapPin size={14} />
-              <span>{leadCard.leadData.cidade}, {leadCard.leadData.estado}</span>
-            </div>
-          )}
-          <div className="flex items-center space-x-2 text-gray-600">
-            <Clock size={14} />
-            <span>No estágio: {formatTime(leadCard.tempoNoEstagio)}</span>
-          </div>
         </div>
 
         {/* Barra de progresso das etapas */}

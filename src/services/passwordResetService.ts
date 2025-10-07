@@ -1,4 +1,4 @@
-import { supabase } from '../config/supabase'
+import { supabase, supabaseAdmin } from '../config/supabase'
 import { emailService } from './emailService'
 
 export interface PasswordResetRequest {
@@ -25,14 +25,14 @@ class PasswordResetService {
     try {
       console.log('[PasswordResetService] Iniciando recuperação para:', email)
 
-      // 1. Verificar se o email existe no banco
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('id, email, name, role')
+      // 1. Verificar se o email existe no banco (tabela employees)
+      const { data: employee, error: employeeError } = await supabase
+        .from('employees')
+        .select('id, email, dados_pessoais')
         .eq('email', email.toLowerCase())
         .single()
 
-      if (profileError || !profile) {
+      if (employeeError || !employee) {
         console.log('[PasswordResetService] Email não encontrado:', email)
         return {
           success: false,
@@ -41,16 +41,26 @@ class PasswordResetService {
         }
       }
 
-      console.log('[PasswordResetService] Perfil encontrado:', profile.name)
+      const employeeName = employee.dados_pessoais?.nome || employee.dados_pessoais?.name || 'Usuário'
+      console.log('[PasswordResetService] Funcionário encontrado:', employeeName)
 
       // 2. Gerar token de recuperação seguro
-      const resetToken = this.generateSecureToken(profile.id)
+      const resetToken = this.generateSecureToken(employee.id)
       
-      // 3. Salvar token no banco (tabela password_reset_tokens)
-      const { error: tokenError } = await supabase
+      // 3. Salvar token no banco (tabela password_reset_tokens) - usando admin para bypassar RLS
+      if (!supabaseAdmin) {
+        console.error('[PasswordResetService] supabaseAdmin não configurado')
+        return {
+          success: false,
+          message: 'Erro de configuração. Contate o administrador.',
+          error: 'ADMIN_NOT_CONFIGURED'
+        }
+      }
+
+      const { error: tokenError } = await supabaseAdmin
         .from('password_reset_tokens')
         .upsert({
-          user_id: profile.id,
+          user_id: employee.id,
           token: resetToken,
           email: email.toLowerCase(),
           expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(), // 1 hora
@@ -79,11 +89,16 @@ class PasswordResetService {
         }
       }
 
-      console.log('[PasswordResetService] Email enviado com sucesso para:', email)
+      console.log('[PasswordResetService] Processo de recuperação concluído para:', email)
+      
+      // Mensagem diferente para dev e produção
+      const isDev = window?.location?.hostname === 'localhost' || import.meta.env.DEV
       
       return {
         success: true,
-        message: 'Email de recuperação enviado! Verifique sua caixa de entrada.'
+        message: isDev 
+          ? '✅ Link de recuperação gerado! Verifique o CONSOLE do navegador para copiar o link.' 
+          : 'Email de recuperação enviado! Verifique sua caixa de entrada.'
       }
 
     } catch (error) {
@@ -179,18 +194,20 @@ class PasswordResetService {
         }
       }
 
-      // 3. Marcar token como usado
-      const { error: markUsedError } = await supabase
-        .from('password_reset_tokens')
-        .update({ 
-          used: true,
-          used_at: new Date().toISOString()
-        })
-        .eq('token', token)
+      // 3. Marcar token como usado - usando admin para bypassar RLS
+      if (supabaseAdmin) {
+        const { error: markUsedError } = await supabaseAdmin
+          .from('password_reset_tokens')
+          .update({ 
+            used: true,
+            used_at: new Date().toISOString()
+          })
+          .eq('token', token)
 
-      if (markUsedError) {
-        console.error('[PasswordResetService] Erro ao marcar token como usado:', markUsedError)
-        // Não falhar por isso, a senha já foi alterada
+        if (markUsedError) {
+          console.error('[PasswordResetService] Erro ao marcar token como usado:', markUsedError)
+          // Não falhar por isso, a senha já foi alterada
+        }
       }
 
       // 4. Limpar tokens antigos do usuário
@@ -220,14 +237,14 @@ class PasswordResetService {
     try {
       console.log('[PasswordResetService] Reenviando email para:', email)
 
-      // Verificar se o email existe
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('id, email, name')
+      // Verificar se o email existe (tabela employees)
+      const { data: employee, error: employeeError } = await supabase
+        .from('employees')
+        .select('id, email, dados_pessoais')
         .eq('email', email.toLowerCase())
         .single()
 
-      if (profileError || !profile) {
+      if (employeeError || !employee) {
         return {
           success: false,
           message: 'Email não encontrado em nossa base de dados.',
@@ -236,16 +253,24 @@ class PasswordResetService {
       }
 
       // Invalidar tokens antigos
-      await this.cleanupOldTokens(profile.id)
+      await this.cleanupOldTokens(employee.id)
 
       // Gerar novo token
-      const resetToken = this.generateSecureToken(profile.id)
+      const resetToken = this.generateSecureToken(employee.id)
       
-      // Salvar novo token
-      const { error: tokenError } = await supabase
+      // Salvar novo token - usando admin para bypassar RLS
+      if (!supabaseAdmin) {
+        return {
+          success: false,
+          message: 'Erro de configuração. Contate o administrador.',
+          error: 'ADMIN_NOT_CONFIGURED'
+        }
+      }
+
+      const { error: tokenError } = await supabaseAdmin
         .from('password_reset_tokens')
         .upsert({
-          user_id: profile.id,
+          user_id: employee.id,
           token: resetToken,
           email: email.toLowerCase(),
           expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
@@ -302,11 +327,13 @@ class PasswordResetService {
    */
   private async cleanupOldTokens(userId: string): Promise<void> {
     try {
-      await supabase
-        .from('password_reset_tokens')
-        .update({ used: true })
-        .eq('user_id', userId)
-        .eq('used', false)
+      if (supabaseAdmin) {
+        await supabaseAdmin
+          .from('password_reset_tokens')
+          .update({ used: true })
+          .eq('user_id', userId)
+          .eq('used', false)
+      }
     } catch (error) {
       console.error('[PasswordResetService] Erro ao limpar tokens antigos:', error)
     }

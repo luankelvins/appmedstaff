@@ -22,6 +22,7 @@ import {
   HeartHandshake
 } from 'lucide-react'
 import { LeadForm as LeadFormType, ProdutoMedStaff, PRODUTOS_MEDSTAFF, ESTADOS_BRASIL } from '../../types/crm'
+import { useEmployees } from '../../hooks/useEmployees'
 
 // Mapeamento de ícones para os produtos
 const iconMap: Record<string, React.ComponentType<any>> = {
@@ -74,6 +75,9 @@ const LeadForm: React.FC<LeadFormProps> = ({
 
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
+  
+  // Buscar lista de funcionários para o select de responsável
+  const { employees, loading: loadingEmployees } = useEmployees()
 
   useEffect(() => {
     if (initialData) {
@@ -491,13 +495,19 @@ const LeadForm: React.FC<LeadFormProps> = ({
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Responsável
                     </label>
-                    <input
-                      type="text"
+                    <select
                       value={formData.responsavel}
                       onChange={(e) => handleInputChange('responsavel', e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Nome do responsável"
-                    />
+                      disabled={loadingEmployees}
+                    >
+                      <option value="">Selecione um responsável</option>
+                      {employees.map((employee) => (
+                        <option key={employee.id} value={employee.id}>
+                          {employee.dados_pessoais?.nome_completo || employee.email}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   {/* Status */}

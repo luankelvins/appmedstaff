@@ -52,7 +52,7 @@ async function setupPasswordReset() {
         const commands = [
           `CREATE TABLE IF NOT EXISTS password_reset_tokens (
             id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-            user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+            user_id UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
             token TEXT NOT NULL UNIQUE,
             email TEXT NOT NULL,
             expires_at TIMESTAMP WITH TIME ZONE NOT NULL,

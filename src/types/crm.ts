@@ -758,6 +758,8 @@ export interface LeadPipelineCard {
   currentStage: LeadPipelineStage
   status: LeadStatus
   responsavelAtual: string
+  responsavelNome?: string
+  responsavelFoto?: string | null
   responsavelAnterior?: string
   dataDistribuicao: Date
   dataUltimaAtualizacao: Date

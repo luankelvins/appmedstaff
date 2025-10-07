@@ -48,14 +48,32 @@ class LeadsService {
   // Buscar todos os leads do banco de dados
   async getAllLeads(): Promise<LeadPipelineCard[]> {
     try {
-      const { data: leads, error } = await supabase
+      // Primeiro tenta com JOIN, se falhar busca sem JOIN
+      let { data: leads, error } = await supabase
         .from('leads')
-        .select('*')
+        .select(`
+          *,
+          assigned_to_employee:employees(
+            id,
+            email,
+            dados_pessoais
+          )
+        `)
         .order('created_at', { ascending: false })
 
+      // Se der erro no JOIN (foreign key não existe), busca sem JOIN
       if (error) {
-        console.error('Erro ao buscar leads:', error)
-        return []
+        console.warn('Erro ao buscar leads com JOIN, buscando sem JOIN:', error)
+        const response = await supabase
+          .from('leads')
+          .select('*')
+          .order('created_at', { ascending: false })
+        
+        leads = response.data
+        if (response.error) {
+          console.error('Erro ao buscar leads:', response.error)
+          return []
+        }
       }
 
       if (!leads) {
@@ -67,6 +85,23 @@ class LeadsService {
       console.error('Erro ao buscar leads:', error)
       return []
     }
+  }
+
+  // Helper: Converter products_interest para array
+  private parseProductsInterest(products: any): string[] {
+    if (!products) return []
+    if (Array.isArray(products)) return products
+    if (typeof products === 'string') {
+      try {
+        // Tentar fazer parse de JSON
+        const parsed = JSON.parse(products)
+        return Array.isArray(parsed) ? parsed : [products]
+      } catch {
+        // Se não for JSON, assumir que é uma string separada por vírgula
+        return products.split(',').map(p => p.trim()).filter(Boolean)
+      }
+    }
+    return []
   }
 
   // Mapear dados do banco para o formato LeadPipelineCard
@@ -83,8 +118,11 @@ class LeadsService {
         cargo: dbLead.position || '',
         cidade: dbLead.city || '',
         estado: dbLead.state || '',
-        produtosInteresse: dbLead.products_interest || [],
+        produtosInteresse: this.parseProductsInterest(dbLead.products_interest),
         origem: dbLead.source || 'site',
+        origemDetalhes: dbLead.origem_detalhes || '',
+        observacoes: dbLead.notes || '',
+        responsavel: dbLead.assigned_to || '',
         status: dbLead.status || 'novo',
         dataCriacao: dbLead.created_at,
         criadoPor: dbLead.created_by || 'sistema'
@@ -92,6 +130,8 @@ class LeadsService {
       currentStage: (dbLead.pipeline_stage || 'novo_lead') as LeadPipelineStage,
       status: dbLead.qualification_status || 'nao_definido',
       responsavelAtual: dbLead.assigned_to,
+      responsavelNome: dbLead.assigned_to_employee?.dados_pessoais?.nome_completo || 'Não atribuído',
+      responsavelFoto: dbLead.assigned_to_employee?.dados_pessoais?.foto_url || null,
       dataDistribuicao: new Date(dbLead.assigned_at || dbLead.created_at),
       dataUltimaAtualizacao: new Date(dbLead.updated_at),
       tempoNoEstagio: this.calculateDaysInStage(dbLead.stage_changed_at || dbLead.created_at),
@@ -144,13 +184,35 @@ class LeadsService {
   // Buscar leads para a aba de contatos
   async getContactLeads(): Promise<ContactLead[]> {
     try {
-      const { data: leads, error } = await supabase
+      // Primeiro tenta com JOIN, se falhar busca sem JOIN
+      let { data: leads, error } = await supabase
         .from('leads')
-        .select('*')
+        .select(`
+          *,
+          assigned_to_employee:employees(
+            id,
+            email,
+            dados_pessoais
+          )
+        `)
         .order('created_at', { ascending: false })
 
+      // Se der erro no JOIN (foreign key não existe), busca sem JOIN
       if (error) {
-        console.error('Erro ao buscar leads para contatos:', error)
+        console.warn('Erro ao buscar leads com JOIN, buscando sem JOIN:', error)
+        const response = await supabase
+          .from('leads')
+          .select('*')
+          .order('created_at', { ascending: false })
+        
+        leads = response.data
+        if (response.error) {
+          console.error('Erro ao buscar leads para contatos:', response.error)
+          return []
+        }
+      }
+
+      if (!leads) {
         return []
       }
 
@@ -164,14 +226,18 @@ class LeadsService {
         position: lead.position,
         city: lead.city,
         state: lead.state,
+        source: lead.source,
+        origem_detalhes: lead.origem_detalhes,
+        assigned_to: lead.assigned_to,
+        assigned_to_name: lead.assigned_to_employee?.dados_pessoais?.nome_completo || 'Não atribuído',
+        assigned_to_photo: lead.assigned_to_employee?.dados_pessoais?.foto_url || null,
         status: this.mapPipelineStatusToContactStatus(lead.qualification_status),
         createdAt: new Date(lead.created_at),
         lastContact: lead.last_contact_at ? new Date(lead.last_contact_at) : undefined,
         dataUltimoContato: lead.last_contact_at ? new Date(lead.last_contact_at) : undefined,
         notes: lead.notes,
         pipelineStage: lead.pipeline_stage as LeadPipelineStage,
-        // TODO: Descomentar quando a coluna existir
-        // motivoDesqualificacao: lead.disqualification_reason
+        motivoDesqualificacao: lead.disqualification_reason
       }))
     } catch (error) {
       console.error('Erro ao buscar leads para contatos:', error)
@@ -191,10 +257,61 @@ class LeadsService {
     }
   }
 
+  // Atualizar lead existente
+  async updateLead(leadId: string, leadData: LeadForm): Promise<void> {
+    try {
+      // Verificar se responsavel é UUID válido
+      const isValidUUID = (str: string) => {
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+        return uuidRegex.test(str)
+      }
+
+      const updatedLead: any = {
+        name: leadData.nome,
+        email: leadData.email,
+        phone: leadData.telefone,
+        company: leadData.empresa,
+        position: leadData.cargo,
+        city: leadData.cidade,
+        state: leadData.estado,
+        products_interest: leadData.produtosInteresse,
+        source: leadData.origem,
+        origem_detalhes: leadData.origemDetalhes || null,
+        notes: leadData.observacoes,
+        updated_at: new Date().toISOString()
+      }
+
+      // Só adicionar assigned_to se for UUID válido
+      if (leadData.responsavel && isValidUUID(leadData.responsavel)) {
+        updatedLead.assigned_to = leadData.responsavel
+      }
+
+      const { error } = await supabase
+        .from('leads')
+        .update(updatedLead)
+        .eq('id', leadId)
+
+      if (error) {
+        throw new Error(`Erro ao atualizar lead: ${error.message}`)
+      }
+
+      this.notifySubscribers()
+    } catch (error) {
+      console.error('Erro ao atualizar lead:', error)
+      throw error
+    }
+  }
+
   // Criar novo lead
   async createLead(leadData: LeadForm): Promise<LeadPipelineCard> {
     try {
-      const newLead = {
+      // Verificar se responsavel é UUID válido
+      const isValidUUID = (str: string) => {
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+        return uuidRegex.test(str)
+      }
+
+      const newLead: any = {
         name: leadData.nome,
         email: leadData.email,
         phone: leadData.telefone,
@@ -204,18 +321,25 @@ class LeadsService {
         state: leadData.estado,
         products_interest: leadData.produtosInteresse,
         source: leadData.origem || 'site',
+        origem_detalhes: leadData.origemDetalhes || null,
+        notes: leadData.observacoes,
         status: 'novo',
         pipeline_stage: 'novo_lead',
         qualification_status: 'nao_definido',
-        created_by: 'sistema',
+        created_by: leadData.criadoPor || 'sistema',
         stage_changed_at: new Date().toISOString(),
         stage_history: JSON.stringify([{
           stage: 'novo_lead',
-          responsavel: null,
+          responsavel: leadData.responsavel && isValidUUID(leadData.responsavel) ? leadData.responsavel : null,
           dataInicio: new Date(),
-          observacoes: 'Lead criado automaticamente'
+          observacoes: leadData.observacoes || 'Lead criado automaticamente'
         }]),
         contact_attempts: JSON.stringify([])
+      }
+
+      // Só adicionar assigned_to se for UUID válido
+      if (leadData.responsavel && isValidUUID(leadData.responsavel)) {
+        newLead.assigned_to = leadData.responsavel
       }
 
       const { data: createdLead, error } = await supabase
@@ -229,13 +353,19 @@ class LeadsService {
       }
 
       // Distribuir o lead automaticamente
-       const distribuicao = leadDistributionService.distribuirLead(createdLead)
-       if (distribuicao.responsavelAtual) {
-         await this.assignLeadToUser(createdLead.id, distribuicao.responsavelAtual)
-       }
+      // Mapear createdLead para LeadForm format
+      const leadFormData: any = {
+        ...leadData,
+        produtosInteresse: createdLead.products_interest || leadData.produtosInteresse
+      }
+      
+      const distribuicao = leadDistributionService.distribuirLead(leadFormData)
+      if (distribuicao.responsavelAtual) {
+        await this.assignLeadToUser(createdLead.id, distribuicao.responsavelAtual)
+      }
 
-       // Criar tarefa inicial
-       await leadTaskService.criarTarefaAutomatica(createdLead.id, distribuicao.responsavelAtual)
+      // Criar tarefa inicial
+      await leadTaskService.criarTarefaAutomatica(createdLead.id, distribuicao.responsavelAtual)
 
       const pipelineCard = this.mapDatabaseLeadToPipelineCard(createdLead)
       this.notifySubscribers()
@@ -575,6 +705,390 @@ class LeadsService {
     } catch (error) {
       console.error('Erro ao buscar estatísticas de desqualificação por período:', error)
       return {}
+    }
+  }
+
+  // ============================================================================
+  // MÉTODOS DE ESTATÍSTICAS E INDICADORES
+  // ============================================================================
+
+  /**
+   * Busca estatísticas gerais dos leads direto do banco
+   */
+  async getLeadsStats(): Promise<{
+    total: number
+    qualificado: number
+    nao_qualificado: number
+    nao_definido: number
+    taxaQualificacao: number
+    novosHoje: number
+    novosEstaSemana: number
+    novosEsteMes: number
+  }> {
+    try {
+      // Total de leads
+      const { count: total, error: totalError } = await supabase
+        .from('leads')
+        .select('*', { count: 'exact', head: true })
+
+      if (totalError) throw totalError
+
+      // Leads qualificados
+      const { count: qualificado, error: qualificadoError } = await supabase
+        .from('leads')
+        .select('*', { count: 'exact', head: true })
+        .eq('qualification_status', 'qualificado')
+
+      if (qualificadoError) throw qualificadoError
+
+      // Leads não qualificados
+      const { count: nao_qualificado, error: naoQualificadoError } = await supabase
+        .from('leads')
+        .select('*', { count: 'exact', head: true })
+        .eq('qualification_status', 'nao_qualificado')
+
+      if (naoQualificadoError) throw naoQualificadoError
+
+      // Leads não definidos
+      const { count: nao_definido, error: naoDefinidoError } = await supabase
+        .from('leads')
+        .select('*', { count: 'exact', head: true })
+        .eq('qualification_status', 'nao_definido')
+
+      if (naoDefinidoError) throw naoDefinidoError
+
+      // Novos leads hoje
+      const hoje = new Date()
+      hoje.setHours(0, 0, 0, 0)
+      
+      const { count: novosHoje, error: novosHojeError } = await supabase
+        .from('leads')
+        .select('*', { count: 'exact', head: true })
+        .gte('created_at', hoje.toISOString())
+
+      if (novosHojeError) throw novosHojeError
+
+      // Novos leads esta semana
+      const inicioSemana = new Date()
+      inicioSemana.setDate(inicioSemana.getDate() - inicioSemana.getDay())
+      inicioSemana.setHours(0, 0, 0, 0)
+
+      const { count: novosEstaSemana, error: novosEstaSemanaError } = await supabase
+        .from('leads')
+        .select('*', { count: 'exact', head: true })
+        .gte('created_at', inicioSemana.toISOString())
+
+      if (novosEstaSemanaError) throw novosEstaSemanaError
+
+      // Novos leads este mês
+      const inicioMes = new Date()
+      inicioMes.setDate(1)
+      inicioMes.setHours(0, 0, 0, 0)
+
+      const { count: novosEsteMes, error: novosEsteMesError } = await supabase
+        .from('leads')
+        .select('*', { count: 'exact', head: true })
+        .gte('created_at', inicioMes.toISOString())
+
+      if (novosEsteMesError) throw novosEsteMesError
+
+      // Calcular taxa de qualificação
+      const totalDefinidos = (qualificado || 0) + (nao_qualificado || 0)
+      const taxaQualificacao = totalDefinidos > 0 
+        ? ((qualificado || 0) / totalDefinidos) * 100 
+        : 0
+
+      return {
+        total: total || 0,
+        qualificado: qualificado || 0,
+        nao_qualificado: nao_qualificado || 0,
+        nao_definido: nao_definido || 0,
+        taxaQualificacao: Math.round(taxaQualificacao * 10) / 10,
+        novosHoje: novosHoje || 0,
+        novosEstaSemana: novosEstaSemana || 0,
+        novosEsteMes: novosEsteMes || 0
+      }
+    } catch (error) {
+      console.error('Erro ao buscar estatísticas de leads:', error)
+      return {
+        total: 0,
+        qualificado: 0,
+        nao_qualificado: 0,
+        nao_definido: 0,
+        taxaQualificacao: 0,
+        novosHoje: 0,
+        novosEstaSemana: 0,
+        novosEsteMes: 0
+      }
+    }
+  }
+
+  /**
+   * Busca estatísticas por estágio do pipeline
+   */
+  async getLeadsByStage(): Promise<Record<string, number>> {
+    try {
+      const { data, error } = await supabase
+        .from('leads')
+        .select('pipeline_stage')
+
+      if (error) throw error
+
+      const stats: Record<string, number> = {}
+      data?.forEach(lead => {
+        const stage = lead.pipeline_stage || 'novo_lead'
+        stats[stage] = (stats[stage] || 0) + 1
+      })
+
+      return stats
+    } catch (error) {
+      console.error('Erro ao buscar leads por estágio:', error)
+      return {}
+    }
+  }
+
+  /**
+   * Busca estatísticas por fonte de origem
+   */
+  async getLeadsBySource(): Promise<Record<string, number>> {
+    try {
+      const { data, error } = await supabase
+        .from('leads')
+        .select('source')
+
+      if (error) throw error
+
+      const stats: Record<string, number> = {}
+      data?.forEach(lead => {
+        const source = lead.source || 'desconhecido'
+        stats[source] = (stats[source] || 0) + 1
+      })
+
+      return stats
+    } catch (error) {
+      console.error('Erro ao buscar leads por fonte:', error)
+      return {}
+    }
+  }
+
+  /**
+   * Busca estatísticas de conversão por responsável
+   */
+  async getConversionByAssigned(): Promise<Array<{
+    responsavel: string
+    total: number
+    qualificados: number
+    taxaConversao: number
+  }>> {
+    try {
+      const { data, error } = await supabase
+        .from('leads')
+        .select('assigned_to, qualification_status')
+        .not('assigned_to', 'is', null)
+
+      if (error) throw error
+
+      const stats: Record<string, { total: number, qualificados: number }> = {}
+      
+      data?.forEach(lead => {
+        const assigned = lead.assigned_to || 'Não Atribuído'
+        if (!stats[assigned]) {
+          stats[assigned] = { total: 0, qualificados: 0 }
+        }
+        stats[assigned].total++
+        if (lead.qualification_status === 'qualificado') {
+          stats[assigned].qualificados++
+        }
+      })
+
+      return Object.entries(stats).map(([responsavel, data]) => ({
+        responsavel,
+        total: data.total,
+        qualificados: data.qualificados,
+        taxaConversao: data.total > 0 
+          ? Math.round((data.qualificados / data.total) * 1000) / 10 
+          : 0
+      })).sort((a, b) => b.taxaConversao - a.taxaConversao)
+    } catch (error) {
+      console.error('Erro ao buscar conversão por responsável:', error)
+      return []
+    }
+  }
+
+  /**
+   * Busca estatísticas do Pipeline de Leads
+   */
+  async getPipelineStats(): Promise<any> {
+    try {
+      const { data: allLeads, error } = await supabase
+        .from('leads')
+        .select('*')
+
+      if (error) throw error
+
+      // Total de leads
+      const totalLeads = allLeads?.length || 0
+
+      // Leads por estágio
+      const leadsPorEstagio: Record<string, number> = {
+        novo_lead: 0,
+        ligacao_1: 0,
+        ligacao_2: 0,
+        mensagem: 0,
+        recontato: 0,
+        desfecho: 0
+      }
+      
+      allLeads?.forEach(lead => {
+        const stage = lead.pipeline_stage || 'novo_lead'
+        if (leadsPorEstagio[stage] !== undefined) {
+          leadsPorEstagio[stage]++
+        }
+      })
+
+      // Leads por status
+      const leadsPorStatus: Record<string, number> = {
+        novo: 0,
+        contato: 0,
+        qualificado: 0,
+        desqualificado: 0,
+        perdido: 0,
+        ganho: 0
+      }
+
+      allLeads?.forEach(lead => {
+        const status = lead.status || 'novo'
+        if (leadsPorStatus[status] !== undefined) {
+          leadsPorStatus[status]++
+        }
+      })
+
+      // Calcular tempo médio no pipeline (em horas)
+      let tempoMedioTotal = 0
+      let countComTempo = 0
+
+      allLeads?.forEach(lead => {
+        if (lead.created_at) {
+          const createdAt = new Date(lead.created_at)
+          const now = new Date()
+          const diffHours = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60)
+          tempoMedioTotal += diffHours
+          countComTempo++
+        }
+      })
+
+      tempoMedioTotal = countComTempo > 0 ? tempoMedioTotal / countComTempo : 0
+
+      // Calcular taxa de conversão
+      const novos = leadsPorStatus.novo || 0
+      const qualificados = leadsPorStatus.qualificado || 0
+      const ganhos = leadsPorStatus.ganho || 0
+      
+      const taxaConversao = {
+        novoParaContato: novos > 0 ? (leadsPorStatus.contato || 0) / novos : 0,
+        contatoParaQualificado: (leadsPorStatus.contato || 0) > 0 
+          ? qualificados / (leadsPorStatus.contato || 1) 
+          : 0,
+        qualificadoParaGanho: qualificados > 0 ? ganhos / qualificados : 0,
+        geral: totalLeads > 0 ? ganhos / totalLeads : 0
+      }
+
+      // Leads por responsável
+      const leadsPorResponsavel: Record<string, any> = {}
+      
+      allLeads?.forEach(lead => {
+        const responsavel = lead.assigned_to || 'Não Atribuído'
+        if (!leadsPorResponsavel[responsavel]) {
+          leadsPorResponsavel[responsavel] = {
+            total: 0,
+            qualificados: 0,
+            perdidos: 0,
+            tempoMedio: 0,
+            totalTempo: 0
+          }
+        }
+        
+        leadsPorResponsavel[responsavel].total++
+        
+        if (lead.qualification_status === 'qualificado') {
+          leadsPorResponsavel[responsavel].qualificados++
+        }
+        if (lead.status === 'perdido') {
+          leadsPorResponsavel[responsavel].perdidos++
+        }
+        
+        if (lead.created_at) {
+          const createdAt = new Date(lead.created_at)
+          const now = new Date()
+          const diffHours = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60)
+          leadsPorResponsavel[responsavel].totalTempo += diffHours
+        }
+      })
+
+      // Calcular tempo médio por responsável
+      Object.keys(leadsPorResponsavel).forEach(key => {
+        const resp = leadsPorResponsavel[key]
+        resp.tempoMedio = resp.total > 0 ? Math.round(resp.totalTempo / resp.total) : 0
+        delete resp.totalTempo
+      })
+
+      // Tarefas vencidas (simulado - precisa de tabela de tarefas)
+      const tarefasVencidas = 0
+
+      // Leads sem contato em 24h
+      const ontem = new Date()
+      ontem.setDate(ontem.getDate() - 1)
+      
+      const { count: leadsSemContato24h } = await supabase
+        .from('leads')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'novo')
+        .lte('created_at', ontem.toISOString())
+
+      // Leads para recontato
+      const { count: leadsParaRecontato } = await supabase
+        .from('leads')
+        .select('*', { count: 'exact', head: true })
+        .eq('pipeline_stage', 'recontato')
+
+      return {
+        totalLeads,
+        leadsPorEstagio,
+        leadsPorStatus,
+        tempoMedioPorEstagio: {
+          novo_lead: tempoMedioTotal / 6,
+          ligacao_1: tempoMedioTotal / 5,
+          ligacao_2: tempoMedioTotal / 4,
+          mensagem: tempoMedioTotal / 3,
+          recontato: tempoMedioTotal / 2,
+          desfecho: tempoMedioTotal
+        },
+        tempoMedioTotal,
+        taxaConversao,
+        leadsPorResponsavel,
+        tarefasVencidas,
+        leadsSemContato24h: leadsSemContato24h || 0,
+        leadsParaRecontato: leadsParaRecontato || 0
+      }
+    } catch (error) {
+      console.error('Erro ao buscar estatísticas do pipeline:', error)
+      return {
+        totalLeads: 0,
+        leadsPorEstagio: {},
+        leadsPorStatus: {},
+        tempoMedioPorEstagio: {},
+        tempoMedioTotal: 0,
+        taxaConversao: {
+          novoParaContato: 0,
+          contatoParaQualificado: 0,
+          qualificadoParaGanho: 0,
+          geral: 0
+        },
+        leadsPorResponsavel: {},
+        tarefasVencidas: 0,
+        leadsSemContato24h: 0,
+        leadsParaRecontato: 0
+      }
     }
   }
 }

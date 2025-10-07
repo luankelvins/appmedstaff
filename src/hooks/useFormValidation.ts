@@ -413,10 +413,32 @@ export function usePasswordValidation() {
     return { strength: 'very-strong', score }
   }, [])
 
+  const validatePasswordStrength = useCallback((password: string) => {
+    const { strength, score } = getPasswordStrength(password)
+    return {
+      strength,
+      score,
+      isValid: score >= 4,
+      feedback: strength === 'weak' ? 'Senha fraca' : strength === 'medium' ? 'Senha média' : strength === 'strong' ? 'Senha forte' : 'Senha muito forte'
+    }
+  }, [getPasswordStrength])
+
+  const getPasswordStrengthColor = useCallback((strength: 'weak' | 'medium' | 'strong' | 'very-strong'): string => {
+    switch (strength) {
+      case 'weak': return 'red'
+      case 'medium': return 'orange'
+      case 'strong': return 'yellow'
+      case 'very-strong': return 'green'
+      default: return 'gray'
+    }
+  }, [])
+
   return { 
     validatePassword, 
     validatePasswordConfirmation,
-    getPasswordStrength 
+    getPasswordStrength,
+    validatePasswordStrength,
+    getPasswordStrengthColor
   }
 }
 

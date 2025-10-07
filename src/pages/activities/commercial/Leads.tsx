@@ -214,7 +214,10 @@ const Leads: React.FC = () => {
         const allLeads = await leadsService.getAllLeads()
         // Garantir que sempre seja um array
         setLeadCards(Array.isArray(allLeads) ? allLeads : [])
-        setStats(mockStats)
+        
+        // Carregar estatísticas do banco
+        const pipelineStats = await leadsService.getPipelineStats()
+        setStats(pipelineStats)
       } catch (error) {
         console.error('Erro ao carregar leads:', error)
         setLeadCards([]) // Inicializar como array vazio em caso de erro
@@ -228,6 +231,10 @@ const Leads: React.FC = () => {
       try {
         const updatedLeads = await leadsService.getAllLeads()
         setLeadCards(Array.isArray(updatedLeads) ? updatedLeads : [])
+        
+        // Atualizar estatísticas também
+        const pipelineStats = await leadsService.getPipelineStats()
+        setStats(pipelineStats)
       } catch (error) {
         console.error('Erro ao atualizar leads:', error)
       }
@@ -273,11 +280,14 @@ const Leads: React.FC = () => {
     if (!selectedLead) return
     
     try {
-      // Aqui você implementaria a lógica de atualização do lead
-      console.log('Atualizando lead:', leadData)
+      await leadsService.updateLead(selectedLead.leadId, leadData)
       handleCloseModals()
+      // Recarregar leads após atualização
+      const updatedLeads = await leadsService.getAllLeads()
+      setLeadCards(Array.isArray(updatedLeads) ? updatedLeads : [])
     } catch (error) {
       console.error('Erro ao atualizar lead:', error)
+      alert('Erro ao atualizar lead. Tente novamente.')
     }
   }
 
@@ -637,77 +647,213 @@ const Leads: React.FC = () => {
       {/* Modal de Detalhes */}
       {showDetailsModal && selectedLead && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">Detalhes do Lead</h2>
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Detalhes do Lead</h2>
+                <p className="text-sm text-gray-500 mt-1">Informações completas do lead no pipeline</p>
+              </div>
               <button
                 onClick={handleCloseModals}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-gray-400 hover:text-gray-600 transition-colors"
               >
-                ✕
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </button>
             </div>
             
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Nome</label>
-                  <p className="text-gray-900">{selectedLead.leadData.nome}</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Empresa</label>
-                  <p className="text-gray-900">{selectedLead.leadData.empresa || 'Pessoa Física'}</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Telefone</label>
-                  <p className="text-gray-900">{selectedLead.leadData.telefone}</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Email</label>
-                  <p className="text-gray-900">{selectedLead.leadData.email || 'Não informado'}</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Cidade</label>
-                  <p className="text-gray-900">{selectedLead.leadData.cidade}, {selectedLead.leadData.estado}</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Estágio Atual</label>
-                  <p className="text-gray-900 capitalize">{selectedLead.currentStage.replace('_', ' ')}</p>
-                </div>
-              </div>
-
+            <div className="p-6 space-y-6">
+              {/* DADOS BÁSICOS */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Produtos de Interesse</label>
-                <div className="flex flex-wrap gap-2">
-                  {selectedLead.leadData.produtosInteresse.map((produto, index) => (
-                    <span key={index} className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
-                      {produto}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {selectedLead.contactAttempts.length > 0 && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Tentativas de Contato</label>
-                  <div className="space-y-2 max-h-32 overflow-y-auto">
-                    {selectedLead.contactAttempts.map((contato) => (
-                      <div key={contato.id} className="p-2 bg-gray-50 rounded border">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <p className="font-medium text-sm capitalize">{contato.tipo} - {contato.resultado}</p>
-                            {contato.observacoes && (
-                              <p className="text-xs text-gray-500 mt-1">{contato.observacoes}</p>
-                            )}
-                          </div>
-                          <span className="text-xs text-gray-500">
-                            {new Date(contato.dataContato).toLocaleDateString()}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
+                <h3 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b-2 border-blue-500">
+                  📋 Dados Básicos
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-gray-50 p-3 rounded-lg border-l-4 border-blue-400">
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Nome Completo *</label>
+                    <p className="text-sm font-medium text-gray-900">{selectedLead.leadData.nome}</p>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded-lg border-l-4 border-blue-400">
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Telefone *</label>
+                    <p className="text-sm text-gray-900">{selectedLead.leadData.telefone}</p>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded-lg border-l-4 border-blue-400">
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">E-mail</label>
+                    <p className="text-sm text-gray-900">{selectedLead.leadData.email || 'Não informado'}</p>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded-lg border-l-4 border-blue-400">
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Empresa</label>
+                    <p className="text-sm text-gray-900">{selectedLead.leadData.empresa || 'Não informado'}</p>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded-lg border-l-4 border-blue-400">
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Cargo</label>
+                    <p className="text-sm text-gray-900">{selectedLead.leadData.cargo || 'Não informado'}</p>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded-lg border-l-4 border-blue-400">
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Cidade</label>
+                    <p className="text-sm text-gray-900">{selectedLead.leadData.cidade || 'Não informado'}</p>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded-lg border-l-4 border-blue-400">
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Estado</label>
+                    <p className="text-sm text-gray-900">{selectedLead.leadData.estado || 'Não informado'}</p>
                   </div>
                 </div>
+              </div>
+
+              {/* PRODUTOS DE INTERESSE */}
+              {selectedLead.leadData.produtosInteresse && (
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b-2 border-indigo-500">
+                    🎯 Produtos de Interesse
+                  </h3>
+                  <div className="bg-indigo-50 p-4 rounded-lg border-l-4 border-indigo-400">
+                    <div className="text-sm text-gray-900 space-y-2">
+                      {Array.isArray(selectedLead.leadData.produtosInteresse) ? (
+                        selectedLead.leadData.produtosInteresse.map((produto, index) => (
+                          <div key={index} className="flex items-start">
+                            <span className="text-indigo-600 mr-2">✓</span>
+                            <span className="text-gray-800">{produto}</span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="flex items-start">
+                          <span className="text-indigo-600 mr-2">✓</span>
+                          <span className="text-gray-800">{selectedLead.leadData.produtosInteresse}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* INFORMAÇÕES ADICIONAIS */}
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b-2 border-purple-500">
+                  ℹ️ Informações Adicionais
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-gray-50 p-3 rounded-lg border-l-4 border-purple-400">
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Estágio Atual</label>
+                    <span className="inline-flex px-3 py-1 text-sm font-semibold rounded-full bg-blue-100 text-blue-800 capitalize">
+                      {selectedLead.currentStage.replace('_', ' ')}
+                    </span>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded-lg border-l-4 border-purple-400">
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Tempo no Estágio</label>
+                    <p className="text-sm text-gray-900">{selectedLead.tempoNoEstagio} dias</p>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded-lg border-l-4 border-purple-400">
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Origem do Lead</label>
+                    <p className="text-sm text-gray-900">{selectedLead.leadData.origem || 'Não informado'}</p>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded-lg border-l-4 border-purple-400">
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Detalhes da Origem</label>
+                    <p className="text-sm text-gray-900">{selectedLead.leadData.origemDetalhes || 'Não informado'}</p>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded-lg border-l-4 border-purple-400">
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Responsável</label>
+                    <p className="text-sm text-gray-900">{(selectedLead as any).responsavelNome || 'Não atribuído'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* TENTATIVAS DE CONTATO */}
+              {selectedLead.contactAttempts && selectedLead.contactAttempts.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b-2 border-orange-500">
+                    📞 Tentativas de Contato ({selectedLead.contactAttempts.length})
+                  </h3>
+                  <div className="bg-orange-50 p-4 rounded-lg border-l-4 border-orange-400 max-h-60 overflow-y-auto">
+                    <div className="space-y-3">
+                      {selectedLead.contactAttempts.map((contato) => (
+                        <div key={contato.id} className="bg-white p-3 rounded-lg border border-orange-200">
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-2 mb-1">
+                                <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
+                                  contato.resultado === 'sucesso' ? 'bg-green-100 text-green-800' :
+                                  contato.resultado === 'sem_resposta' ? 'bg-yellow-100 text-yellow-800' :
+                                  'bg-red-100 text-red-800'
+                                }`}>
+                                  {contato.tipo}
+                                </span>
+                                <span className="text-xs text-gray-500 capitalize">{contato.resultado}</span>
+                              </div>
+                              {contato.observacoes && (
+                                <p className="text-sm text-gray-600 mt-1">{contato.observacoes}</p>
+                              )}
+                            </div>
+                            <span className="text-xs text-gray-500 whitespace-nowrap ml-4">
+                              {new Date(contato.dataContato).toLocaleDateString('pt-BR')}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* HISTÓRICO DE ESTÁGIOS */}
+              {selectedLead.stageHistory && selectedLead.stageHistory.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b-2 border-teal-500">
+                    🔄 Histórico de Estágios
+                  </h3>
+                  <div className="bg-teal-50 p-4 rounded-lg border-l-4 border-teal-400">
+                    <div className="space-y-3">
+                      {selectedLead.stageHistory.map((history, index) => (
+                        <div key={index} className="flex items-start space-x-3 text-sm bg-white p-2 rounded-lg">
+                          <span className="w-2 h-2 bg-teal-500 rounded-full mt-1.5 flex-shrink-0"></span>
+                          <div className="flex-1">
+                            <div className="flex items-center flex-wrap gap-2">
+                              <span className="font-semibold text-gray-900 capitalize">{history.stage.replace('_', ' ')}</span>
+                              <span className="text-gray-400">•</span>
+                              <span className="text-gray-600">{new Date(history.dataInicio).toLocaleDateString('pt-BR')}</span>
+                            </div>
+                            {history.observacoes && (
+                              <p className="text-gray-600 mt-1">{history.observacoes}</p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* OBSERVAÇÕES */}
+              {selectedLead.leadData.observacoes && (
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b-2 border-green-500">
+                    📝 Observações
+                  </h3>
+                  <div className="bg-green-50 p-4 rounded-lg border-l-4 border-green-400">
+                    <p className="text-sm text-gray-900 whitespace-pre-wrap">{selectedLead.leadData.observacoes}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Ações */}
+            <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 flex justify-end space-x-3">
+              <button
+                onClick={handleCloseModals}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Fechar
+              </button>
+              {canEdit && (
+                <button
+                  onClick={() => {
+                    setShowDetailsModal(false)
+                    setShowEditModal(true)
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Editar Lead
+                </button>
               )}
             </div>
           </div>

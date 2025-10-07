@@ -19,6 +19,7 @@
     "test:watch": "vitest --watch",
     "test:ci": "vitest --run --coverage",
     "setup-password-reset": "node scripts/setup-password-reset.mjs",
+    "setup-user-preferences": "node scripts/setup-user-preferences.mjs",
     "setup-db": "node scripts/create-tables-sql.mjs"
   },
   "dependencies": {

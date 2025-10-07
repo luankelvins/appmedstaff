@@ -429,6 +429,11 @@ class LeadDistributionService {
       'medassist': 'assistencia'
     }
 
+    // Validar se produtosIds existe e é um array
+    if (!produtosIds || !Array.isArray(produtosIds)) {
+      return []
+    }
+    
     return [...new Set(produtosIds.map(id => mapeamento[id]).filter(Boolean))]
   }
 

@@ -47,6 +47,16 @@ const Leads: React.FC = () => {
   const [showDetailsModal, setShowDetailsModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [disqualificationStats, setDisqualificationStats] = useState<Record<string, number>>({})
+  const [stats, setStats] = useState({
+    total: 0,
+    qualificado: 0,
+    nao_qualificado: 0,
+    nao_definido: 0,
+    taxaQualificacao: 0,
+    novosHoje: 0,
+    novosEstaSemana: 0,
+    novosEsteMes: 0
+  })
 
   // Permissões
   const canCreate = hasPermission('contacts.create')
@@ -61,11 +71,17 @@ const Leads: React.FC = () => {
   const loadLeads = async () => {
     try {
       setLoading(true)
-      const contactLeads = leadsService.getContactLeads()
+      
+      // Carregar leads
+      const contactLeads = await leadsService.getContactLeads()
       setLeads(contactLeads)
       
+      // Carregar estatísticas do banco
+      const leadsStats = await leadsService.getLeadsStats()
+      setStats(leadsStats)
+      
       // Carregar estatísticas de desqualificação
-      const disqualStats = leadsService.getDisqualificationStats()
+      const disqualStats = await leadsService.getDisqualificationStats()
       setDisqualificationStats(disqualStats)
     } catch (error) {
       console.error('Erro ao carregar leads:', error)
@@ -105,12 +121,12 @@ const Leads: React.FC = () => {
     if (!selectedLead) return
     
     try {
-      // Aqui você implementaria a lógica de atualização do lead
-      console.log('Atualizando lead:', leadData)
+      await leadsService.updateLead(selectedLead.id, leadData)
       await loadLeads()
       handleCloseModals()
     } catch (error) {
       console.error('Erro ao atualizar lead:', error)
+      alert('Erro ao atualizar lead. Tente novamente.')
     }
   }
 
@@ -242,13 +258,7 @@ const Leads: React.FC = () => {
     return matchesSearch && matchesStage && matchesStatus && matchesPeriod
   })
 
-  // Estatísticas dos leads
-  const stats = {
-    total: leads.length,
-    qualificado: leads.filter(l => l.status === 'qualificado').length,
-    nao_qualificado: leads.filter(l => l.status === 'nao_qualificado').length,
-    nao_definido: leads.filter(l => l.status === 'nao_definido').length
-  }
+  // Estatísticas vêm do banco via state (loadLeads)
 
   if (!canView) {
     return (
@@ -292,7 +302,7 @@ const Leads: React.FC = () => {
       </div>
 
       {/* Estatísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         <div className="bg-white p-4 rounded-lg shadow border">
           <div className="flex items-center justify-between">
             <div>
@@ -330,6 +340,49 @@ const Leads: React.FC = () => {
               <p className="text-2xl font-bold text-gray-600">{stats.nao_definido}</p>
             </div>
             <Clock className="h-8 w-8 text-gray-500" />
+          </div>
+        </div>
+      </div>
+
+      {/* Indicadores Adicionais */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white p-4 rounded-lg shadow border">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Taxa de Qualificação</p>
+              <p className="text-2xl font-bold text-purple-600">{stats.taxaQualificacao}%</p>
+            </div>
+            <TrendingUp className="h-8 w-8 text-purple-500" />
+          </div>
+        </div>
+        
+        <div className="bg-white p-4 rounded-lg shadow border">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Novos Hoje</p>
+              <p className="text-2xl font-bold text-indigo-600">{stats.novosHoje}</p>
+            </div>
+            <Calendar className="h-8 w-8 text-indigo-500" />
+          </div>
+        </div>
+        
+        <div className="bg-white p-4 rounded-lg shadow border">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Esta Semana</p>
+              <p className="text-2xl font-bold text-cyan-600">{stats.novosEstaSemana}</p>
+            </div>
+            <BarChart3 className="h-8 w-8 text-cyan-500" />
+          </div>
+        </div>
+        
+        <div className="bg-white p-4 rounded-lg shadow border">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Este Mês</p>
+              <p className="text-2xl font-bold text-teal-600">{stats.novosEsteMes}</p>
+            </div>
+            <TrendingUp className="h-8 w-8 text-teal-500" />
           </div>
         </div>
       </div>
@@ -650,62 +703,171 @@ const Leads: React.FC = () => {
       {/* Modal de Detalhes */}
       {showDetailsModal && selectedLead && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">Detalhes do Lead</h2>
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Detalhes do Lead</h2>
+                <p className="text-sm text-gray-500 mt-1">Informações completas do lead</p>
+              </div>
               <button
                 onClick={handleCloseModals}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-gray-400 hover:text-gray-600 transition-colors"
               >
-                ✕
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </button>
             </div>
             
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Nome</label>
-                  <p className="text-gray-900">{selectedLead.name}</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Empresa</label>
-                  <p className="text-gray-900">{selectedLead.company || 'Pessoa Física'}</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Telefone</label>
-                  <p className="text-gray-900">{selectedLead.phone}</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Email</label>
-                  <p className="text-gray-900">{selectedLead.email || 'Não informado'}</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Cidade</label>
-                  <p className="text-gray-900">{selectedLead.city}, {selectedLead.state}</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Status</label>
-                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(selectedLead.status)}`}>
-                    {getStatusLabel(selectedLead.status)}
-                  </span>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Etapa do Pipeline</label>
-                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getPipelineStageColor(selectedLead.pipelineStage)}`}>
-                    {getPipelineStageLabel(selectedLead.pipelineStage)}
-                  </span>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Criado em</label>
-                  <p className="text-gray-900">{new Date(selectedLead.createdAt).toLocaleDateString('pt-BR')}</p>
+            <div className="p-6 space-y-6">
+              {/* DADOS BÁSICOS */}
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b-2 border-blue-500">
+                  📋 Dados Básicos
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-gray-50 p-3 rounded-lg border-l-4 border-blue-400">
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Nome Completo *</label>
+                    <p className="text-sm font-medium text-gray-900">{selectedLead.name}</p>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded-lg border-l-4 border-blue-400">
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Telefone *</label>
+                    <p className="text-sm text-gray-900">{selectedLead.phone}</p>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded-lg border-l-4 border-blue-400">
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">E-mail</label>
+                    <p className="text-sm text-gray-900">{selectedLead.email || 'Não informado'}</p>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded-lg border-l-4 border-blue-400">
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Empresa</label>
+                    <p className="text-sm text-gray-900">{selectedLead.company || 'Não informado'}</p>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded-lg border-l-4 border-blue-400">
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Cargo</label>
+                    <p className="text-sm text-gray-900">{selectedLead.position || 'Não informado'}</p>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded-lg border-l-4 border-blue-400">
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Cidade</label>
+                    <p className="text-sm text-gray-900">{selectedLead.city || 'Não informado'}</p>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded-lg border-l-4 border-blue-400">
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Estado</label>
+                    <p className="text-sm text-gray-900">{selectedLead.state || 'Não informado'}</p>
+                  </div>
                 </div>
               </div>
 
+              {/* PRODUTOS DE INTERESSE */}
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b-2 border-indigo-500">
+                  🎯 Produtos de Interesse
+                </h3>
+                <div className="bg-indigo-50 p-4 rounded-lg border-l-4 border-indigo-400">
+                  <div className="text-sm text-gray-900 space-y-2">
+                    {selectedLead.notes ? (
+                      // Se tiver produtos no notes, extrair e mostrar
+                      selectedLead.notes.split('\n').map((line, index) => {
+                        if (line.includes('Produtos de Interesse:')) {
+                          const produtos = line.replace('Produtos de Interesse:', '').trim()
+                          return produtos ? (
+                            <div key={index} className="space-y-1">
+                              {produtos.split(',').map((produto, idx) => (
+                                <div key={idx} className="flex items-start">
+                                  <span className="text-indigo-600 mr-2">✓</span>
+                                  <span className="text-gray-800">{produto.trim()}</span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : <p className="text-gray-500">Não informado</p>
+                        }
+                        return null
+                      })
+                    ) : (
+                      <p className="text-gray-500">Não informado</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* INFORMAÇÕES ADICIONAIS */}
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b-2 border-purple-500">
+                  ℹ️ Informações Adicionais
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-gray-50 p-3 rounded-lg border-l-4 border-purple-400">
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Origem do Lead</label>
+                    <p className="text-sm text-gray-900">{selectedLead.source || 'Não informado'}</p>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded-lg border-l-4 border-purple-400">
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Detalhes da Origem</label>
+                    <p className="text-sm text-gray-900">{(selectedLead as any).origem_detalhes || 'Não informado'}</p>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded-lg border-l-4 border-purple-400">
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Responsável</label>
+                    <p className="text-sm text-gray-900">{(selectedLead as any).assigned_to_name || 'Não atribuído'}</p>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded-lg border-l-4 border-purple-400">
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Etapa do Pipeline</label>
+                    <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${getPipelineStageColor(selectedLead.pipelineStage)}`}>
+                      {getPipelineStageLabel(selectedLead.pipelineStage)}
+                    </span>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded-lg border-l-4 border-purple-400">
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">Criado em</label>
+                    <p className="text-sm text-gray-900">
+                      {new Date(selectedLead.createdAt).toLocaleDateString('pt-BR')}
+                    </p>
+                  </div>
+                  {(selectedLead.lastContact || selectedLead.dataUltimoContato) && (
+                    <div className="bg-gray-50 p-3 rounded-lg border-l-4 border-purple-400">
+                      <label className="block text-xs font-semibold text-gray-600 mb-1">Último Contato</label>
+                      <p className="text-sm text-gray-900">
+                        {new Date(selectedLead.lastContact || selectedLead.dataUltimoContato!).toLocaleDateString('pt-BR')}
+                      </p>
+                    </div>
+                  )}
+                  {selectedLead.motivoDesqualificacao && (
+                    <div className="bg-red-50 p-3 rounded-lg border-l-4 border-red-400">
+                      <label className="block text-xs font-semibold text-red-700 mb-1">Motivo de Desqualificação</label>
+                      <p className="text-sm text-red-900">{selectedLead.motivoDesqualificacao}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* OBSERVAÇÕES */}
               {selectedLead.notes && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Observações</label>
-                  <p className="text-gray-900 bg-gray-50 p-3 rounded-lg">{selectedLead.notes}</p>
+                  <h3 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b-2 border-green-500">
+                    📝 Observações
+                  </h3>
+                  <div className="bg-green-50 p-4 rounded-lg border-l-4 border-green-400">
+                    <p className="text-sm text-gray-900 whitespace-pre-wrap">{selectedLead.notes}</p>
+                  </div>
                 </div>
+              )}
+            </div>
+
+            {/* Ações */}
+            <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 flex justify-end space-x-3">
+              <button
+                onClick={handleCloseModals}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Fechar
+              </button>
+              {canEdit && (
+                <button
+                  onClick={() => {
+                    setShowDetailsModal(false)
+                    setShowEditModal(true)
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+                >
+                  <Edit className="w-4 h-4 mr-2" />
+                  Editar Lead
+                </button>
               )}
             </div>
           </div>
