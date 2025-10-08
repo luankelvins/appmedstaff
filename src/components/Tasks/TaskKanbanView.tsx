@@ -255,49 +255,52 @@ const TaskKanbanView: React.FC<TaskKanbanViewProps> = ({ onTaskClick, onComments
 
       {/* Kanban Board */}
       {!loading && (
-        <div className="flex-1 overflow-x-auto">
+        <div className="flex-1">
           <DragDropContext onDragEnd={handleDragEnd}>
-            <div className="flex space-x-3 lg:space-x-6 h-full min-w-max pb-6">
+            <div className="flex gap-6 min-h-[600px]">
               {columns.map((column) => {
                 const colDef = getColumnDefinition(column.id);
                 return (
-                  <div key={column.id} className="flex-shrink-0 w-72 sm:w-80">
-                    {/* Column Header */}
-                    <div className={`flex items-center justify-between p-3 rounded-t-lg border-b ${colDef?.headerColor || 'bg-gray-100'}`}>
-                      <div className="flex items-center space-x-2">
-                        <h3 className="font-medium">{column.title}</h3>
-                        <span className="bg-white bg-opacity-70 text-xs px-2 py-1 rounded-full">
-                          {column.tasks.length}
-                        </span>
+                  <div key={column.id} className="flex-shrink-0 w-80">
+                    <div className="bg-white rounded-lg shadow-sm border h-full flex flex-col">
+                      <div className="p-4 border-b bg-gray-50 rounded-t-lg">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            <div 
+                              className="w-3 h-3 rounded-full"
+                              style={{ backgroundColor: colDef?.color || '#6B7280' }}
+                            />
+                            <h3 className="font-medium text-gray-900">{column.title}</h3>
+                          </div>
+                          <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded-full text-sm font-medium">
+                            {column.tasks.length}
+                          </span>
+                        </div>
+                        
+                        {/* Estatísticas da coluna */}
+                        <div className="mt-2 flex items-center space-x-4 text-xs text-gray-500">
+                          <span>
+                            Alta: {column.tasks.filter(t => t.priority === 'high').length}
+                          </span>
+                          <span>
+                            Média: {column.tasks.filter(t => t.priority === 'medium').length}
+                          </span>
+                          <span>
+                            Baixa: {column.tasks.filter(t => t.priority === 'low').length}
+                          </span>
+                        </div>
                       </div>
-                      
-                      <div className="flex items-center space-x-1">
-                        <button
-                          onClick={() => handleCreateTask(column.id)}
-                          className="p-1 hover:bg-white hover:bg-opacity-50 rounded"
-                          title="Adicionar task nesta coluna"
-                        >
-                          <Plus className="w-4 h-4" />
-                        </button>
-                        <button className="p-1 hover:bg-white hover:bg-opacity-50 rounded">
-                          <MoreVertical className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
 
-                    {/* Column Content */}
-                    <Droppable droppableId={column.id}>
-                      {(provided, snapshot) => (
-                        <div
-                          ref={provided.innerRef}
-                          {...provided.droppableProps}
-                          className={`min-h-[500px] p-3 border-l border-r border-b rounded-b-lg ${
-                            colDef?.color || 'bg-gray-50'
-                          } ${
-                            snapshot.isDraggingOver ? 'bg-opacity-70' : ''
-                          }`}
-                        >
-                          <div className="space-y-3">
+                      <Droppable droppableId={column.id}>
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.droppableProps}
+                            className={`flex-1 p-4 space-y-3 min-h-[400px] ${
+                              snapshot.isDraggingOver ? 'bg-blue-50' : ''
+                            }`}
+                            style={{ maxHeight: 'calc(100vh - 300px)', overflowY: 'auto' }}
+                          >
                             {column.tasks.map((task, index) => (
                               <Draggable
                                 key={task.id}
@@ -326,29 +329,30 @@ const TaskKanbanView: React.FC<TaskKanbanViewProps> = ({ onTaskClick, onComments
                                 )}
                               </Draggable>
                             ))}
-                          </div>
-                          {provided.placeholder}
-                          
-                          {/* Empty State */}
-                          {column.tasks.length === 0 && (
-                            <div className="text-center py-8 text-gray-400">
-                              <div className="w-12 h-12 mx-auto mb-2 opacity-50">
-                                <svg fill="currentColor" viewBox="0 0 24 24">
-                                  <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
-                                </svg>
+                            
+                            {provided.placeholder}
+                            
+                            {/* Empty State */}
+                            {column.tasks.length === 0 && (
+                              <div className="text-center py-8 text-gray-400">
+                                <div className="w-12 h-12 mx-auto mb-2 opacity-50">
+                                  <svg fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+                                  </svg>
+                                </div>
+                                <p className="text-sm">Nenhuma task</p>
+                                <button
+                                  onClick={() => handleCreateTask(column.id)}
+                                  className="mt-2 text-xs text-blue-600 hover:text-blue-800"
+                                >
+                                  Adicionar task
+                                </button>
                               </div>
-                              <p className="text-sm">Nenhuma task</p>
-                              <button
-                                onClick={() => handleCreateTask(column.id)}
-                                className="mt-2 text-xs text-blue-600 hover:text-blue-800"
-                              >
-                                Adicionar task
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </Droppable>
+                            )}
+                          </div>
+                        )}
+                      </Droppable>
+                    </div>
                   </div>
                 );
               })}
