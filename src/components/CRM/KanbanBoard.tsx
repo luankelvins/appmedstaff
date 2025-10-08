@@ -190,7 +190,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   }
 
   return (
-    <div className="h-full overflow-hidden">
+    <div className="h-full">
       <DragDropContext onDragEnd={handleDragEnd}>
         <div className="flex gap-6 h-full overflow-x-auto pb-4">
           {stages.map(stage => {
@@ -217,9 +217,10 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                       <div
                         ref={provided.innerRef}
                         {...provided.droppableProps}
-                        className={`flex-1 p-4 space-y-3 overflow-y-auto ${
+                        className={`flex-1 p-4 space-y-3 ${
                           snapshot.isDraggingOver ? 'bg-blue-50' : ''
                         }`}
+                        style={{ maxHeight: 'calc(100vh - 200px)', overflowY: 'auto' }}
                       >
                         {stageLeads.map((leadCard, index) => (
                           <Draggable key={leadCard.id} draggableId={leadCard.id} index={index}>

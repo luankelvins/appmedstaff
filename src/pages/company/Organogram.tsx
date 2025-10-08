@@ -113,7 +113,7 @@ const TreeNode: React.FC<{
           {parentConnections.map((hasConnection, index) => (
             hasConnection && (
               <div
-                key={index}
+                key={`connection-${index}-${parentConnections.length}`}
                 className="absolute w-0.5 bg-gray-300"
                 style={{
                   left: `${6 - (parentConnections.length - index - 1) * 48}px`,

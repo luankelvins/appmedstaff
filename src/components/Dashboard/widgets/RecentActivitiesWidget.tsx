@@ -12,6 +12,8 @@ import {
   ArrowRight
 } from 'lucide-react'
 import DashboardWidget from '../DashboardWidget'
+import { dashboardService } from '../../../services/dashboardService'
+import { ActivityItem } from '../RecentActivity'
 
 interface BaseWidgetProps {
   onRefresh?: () => void
@@ -52,106 +54,57 @@ const RecentActivitiesWidget: React.FC<BaseWidgetProps> = ({
       setLoading(true)
       setError(undefined)
       
-      // Simular carregamento de dados
-      await new Promise(resolve => setTimeout(resolve, 600))
+      // Carregar atividades reais do dashboardService
+      const realActivities = await dashboardService.getRecentActivities(6)
       
-      const mockActivities: Activity[] = [
-        {
-          id: '1',
-          type: 'commercial',
-          title: 'Novo lead cadastrado',
-          description: 'Lead "Clínica São Paulo" adicionado ao pipeline',
-          user: {
-            id: '1',
-            name: 'Ana Silva'
-          },
-          timestamp: '2024-01-15T10:30:00Z',
-          metadata: {
-            entityType: 'lead',
-            entityId: 'lead-123'
-          }
+      // Mapear os dados para o formato esperado pelo widget
+      const mappedActivities: Activity[] = realActivities.map(activity => ({
+        id: activity.id,
+        type: mapActivityType(activity.type),
+        title: activity.title,
+        description: activity.description,
+        user: {
+          id: 'user-' + activity.user.name.replace(/\s+/g, '-').toLowerCase(),
+          name: activity.user.name,
+          avatar: activity.user.avatar
         },
-        {
-          id: '2',
-          type: 'financial',
-          title: 'Pagamento recebido',
-          description: 'Fatura #1234 paga pelo cliente MedCorp',
-          user: {
-            id: '2',
-            name: 'Carlos Santos'
-          },
-          timestamp: '2024-01-15T09:15:00Z',
-          metadata: {
-            entityType: 'payment',
-            amount: 5500,
-            status: 'completed'
-          }
-        },
-        {
-          id: '3',
-          type: 'task',
-          title: 'Tarefa concluída',
-          description: 'Emissão de NF para cliente finalizada',
-          user: {
-            id: '3',
-            name: 'Maria Costa'
-          },
-          timestamp: '2024-01-15T08:45:00Z',
-          metadata: {
-            entityType: 'task',
-            status: 'completed'
-          }
-        },
-        {
-          id: '4',
-          type: 'document',
-          title: 'Documento enviado',
-          description: 'Contrato assinado enviado para cliente',
-          user: {
-            id: '4',
-            name: 'João Oliveira'
-          },
-          timestamp: '2024-01-14T16:20:00Z',
-          metadata: {
-            entityType: 'contract'
-          }
-        },
-        {
-          id: '5',
-          type: 'communication',
-          title: 'Mensagem recebida',
-          description: 'Nova mensagem no chat interno',
-          user: {
-            id: '5',
-            name: 'Paula Ferreira'
-          },
-          timestamp: '2024-01-14T15:10:00Z',
-          metadata: {
-            entityType: 'message'
-          }
-        },
-        {
-          id: '6',
-          type: 'user',
-          title: 'Novo usuário',
-          description: 'Colaborador adicionado ao sistema',
-          user: {
-            id: '6',
-            name: 'Admin Sistema'
-          },
-          timestamp: '2024-01-14T14:00:00Z',
-          metadata: {
-            entityType: 'user'
-          }
+        timestamp: activity.timestamp instanceof Date ? activity.timestamp.toISOString() : activity.timestamp,
+        metadata: {
+          entityType: activity.metadata?.taskId ? 'task' : 'general',
+          entityId: activity.metadata?.taskId || activity.metadata?.projectId || activity.id,
+          status: activity.metadata?.newStatus || activity.metadata?.oldStatus
         }
-      ]
+      }))
       
-      setActivities(mockActivities)
+      setActivities(mappedActivities)
     } catch (err) {
       setError('Erro ao carregar atividades')
       console.error('Error loading activities:', err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Função para mapear tipos de atividade para os tipos esperados pelo widget
+  const mapActivityType = (type: string): Activity['type'] => {
+    switch (type) {
+      case 'task_completed':
+      case 'task_created':
+        return 'task'
+      case 'lead_created':
+      case 'lead_updated':
+        return 'commercial'
+      case 'revenue_added':
+      case 'expense_added':
+        return 'financial'
+      case 'document_uploaded':
+        return 'document'
+      case 'comment_added':
+        return 'communication'
+      case 'user_joined':
+        return 'user'
+      default:
+        return 'task'
     }
   }
 

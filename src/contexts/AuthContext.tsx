@@ -27,15 +27,9 @@ interface AuthContextType {
   hasRole: (role: string) => boolean
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined)
+export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-export const useAuth = () => {
-  const context = useContext(AuthContext)
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider')
-  }
-  return context
-}
+
 
 interface AuthProviderProps {
   children: ReactNode
@@ -73,7 +67,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           
           let profile = null
           let attempts = 0
-          const maxAttempts = 3
+          const maxAttempts = 2
           
           while (!profile && attempts < maxAttempts) {
             attempts++
@@ -88,12 +82,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               }
               
               if (attempts < maxAttempts) {
-                await new Promise(resolve => setTimeout(resolve, 500))
+                console.log('[AuthContext] checkSession - Perfil não encontrado, aguardando antes da próxima tentativa...')
+                await new Promise(resolve => setTimeout(resolve, 1000))
               }
             } catch (error) {
               console.error(`[AuthContext] checkSession - Erro na tentativa ${attempts}:`, error)
+              
+              if (error instanceof Error && error.message.includes('timeout')) {
+                console.error('[AuthContext] checkSession - Erro de timeout detectado, abortando tentativas adicionais')
+                break
+              }
+              
               if (attempts < maxAttempts) {
-                await new Promise(resolve => setTimeout(resolve, 500))
+                console.log('[AuthContext] checkSession - Aguardando antes da próxima tentativa...')
+                await new Promise(resolve => setTimeout(resolve, 1000))
               }
             }
           }
@@ -104,6 +106,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             setUser(mappedUser)
           } else {
             console.error('[AuthContext] checkSession - Perfil não encontrado após', maxAttempts, 'tentativas')
+            const basicUser: User = {
+              id: session.user.id,
+              name: session.user.email?.split('@')[0] || 'Usuário',
+              email: session.user.email || '',
+              role: 'user',
+              permissions: []
+            }
+            console.log('[AuthContext] checkSession - Criando usuário básico temporário:', basicUser)
+            setUser(basicUser)
           }
         }
       } catch (error) {
@@ -135,7 +146,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           // Tentar buscar perfil com retentativas
           let profile = null
           let attempts = 0
-          const maxAttempts = 3
+          const maxAttempts = 2
           
           while (!profile && attempts < maxAttempts) {
             attempts++
@@ -149,14 +160,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 break
               }
               
-              // Aguardar 500ms antes de tentar novamente
+              // Aguardar 1 segundo antes de tentar novamente
               if (attempts < maxAttempts) {
-                await new Promise(resolve => setTimeout(resolve, 500))
+                console.log('[AuthContext] Perfil não encontrado, aguardando antes da próxima tentativa...')
+                await new Promise(resolve => setTimeout(resolve, 1000))
               }
             } catch (error) {
               console.error(`[AuthContext] Erro na tentativa ${attempts}:`, error)
+              
+              // Se for erro de timeout, não tentar novamente imediatamente
+              if (error instanceof Error && error.message.includes('timeout')) {
+                console.error('[AuthContext] Erro de timeout detectado, abortando tentativas adicionais')
+                break
+              }
+              
               if (attempts < maxAttempts) {
-                await new Promise(resolve => setTimeout(resolve, 500))
+                console.log('[AuthContext] Aguardando antes da próxima tentativa...')
+                await new Promise(resolve => setTimeout(resolve, 1000))
               }
             }
           }
@@ -168,9 +188,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             console.log('[AuthContext] Usuário setado com sucesso! Role:', mappedUser.role)
           } else {
             console.error('[AuthContext] ERRO: Não foi possível buscar perfil após', maxAttempts, 'tentativas')
-            // NÃO criar usuário básico - manter null e forçar re-login
-            setUser(null)
-            await supabaseService.signOut()
+            // Criar usuário básico temporário para evitar loop de login
+            const basicUser: User = {
+              id: session.user.id,
+              name: session.user.email?.split('@')[0] || 'Usuário',
+              email: session.user.email || '',
+              role: 'user',
+              permissions: []
+            }
+            console.log('[AuthContext] Criando usuário básico temporário:', basicUser)
+            setUser(basicUser)
           }
         } else if (event === 'SIGNED_OUT') {
           console.log('[AuthContext] Usuário deslogado')

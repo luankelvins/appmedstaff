@@ -534,6 +534,35 @@ export interface EmployeeCommentAttachment {
   category: 'documento_oficial' | 'atestado_medico' | 'comprovante' | 'foto' | 'outros'
 }
 
+export interface LeadComment {
+  id: string
+  leadId: string
+  authorId: string
+  authorName: string
+  authorRole: string
+  content: string
+  isPrivate: boolean // Se apenas equipe comercial pode visualizar
+  attachments?: LeadCommentAttachment[]
+  createdAt: string
+  updatedAt?: string
+  editedBy?: string
+  tags?: string[]
+  priority: 'baixa' | 'media' | 'alta'
+  type: 'observacao' | 'contato' | 'negociacao' | 'follow_up' | 'outros'
+  relatedStage?: LeadPipelineStage
+  relatedContactAttemptId?: string
+}
+
+export interface LeadCommentAttachment {
+  id: string
+  commentId: string
+  name: string
+  type: string
+  size: number
+  url?: string
+  uploadDate: string
+}
+
 export interface CommentFilter {
   type?: EmployeeComment['type'][]
   priority?: EmployeeComment['priority'][]
@@ -606,7 +635,7 @@ export interface LeadForm {
   observacoes?: string
   
   // Controle
-  status: 'novo' | 'contatado' | 'qualificado' | 'proposta' | 'negociacao' | 'ganho' | 'perdido'
+  desfecho: 'qualificado' | 'desqualificado' | 'nao_informado' | 'nao_definido'
   responsavel?: string
   dataContato?: string
   proximaAcao?: string
@@ -727,7 +756,8 @@ export type LeadPipelineStage =
 
 export type LeadStatus = 
   | 'qualificado'
-  | 'nao_qualificado'
+  | 'desqualificado'
+  | 'nao_informado'
   | 'nao_definido'
 
 export type TaskStatus = 
@@ -797,6 +827,9 @@ export interface LeadPipelineCard {
     dataDesfecho: Date
     responsavelDesfecho: string
   }
+  
+  // Sistema de Comentários
+  comments?: LeadComment[]
   
   observacoes?: string
   criadoPor: string

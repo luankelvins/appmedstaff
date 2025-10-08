@@ -421,8 +421,8 @@ const Operational: React.FC = () => {
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-1">
-                        {company.documents.map((doc, index) => (
-                          <span key={index} className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs">
+                        {company.documents.map((doc) => (
+                          <span key={doc} className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs">
                             {doc}
                           </span>
                         ))}
@@ -469,8 +469,8 @@ const Operational: React.FC = () => {
                         <div>Vencimento: {formatDate(invoice.dueDate)}</div>
                       </div>
                       <div className="flex flex-wrap gap-1 mb-2">
-                        {invoice.services.map((service, index) => (
-                          <span key={index} className="px-2 py-1 bg-green-50 text-green-700 rounded text-xs">
+                        {invoice.services.map((service) => (
+                          <span key={service} className="px-2 py-1 bg-green-50 text-green-700 rounded text-xs">
                             {service}
                           </span>
                         ))}
@@ -521,8 +521,8 @@ const Operational: React.FC = () => {
                         <div>Prazo: {formatDate(irpf.deadline)}</div>
                       </div>
                       <div className="flex flex-wrap gap-1 mb-2">
-                        {irpf.documents.map((doc, index) => (
-                          <span key={index} className="px-2 py-1 bg-yellow-50 text-yellow-700 rounded text-xs">
+                        {irpf.documents.map((doc) => (
+                          <span key={doc} className="px-2 py-1 bg-yellow-50 text-yellow-700 rounded text-xs">
                             {doc}
                           </span>
                         ))}

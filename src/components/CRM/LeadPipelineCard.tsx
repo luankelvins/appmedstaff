@@ -23,11 +23,13 @@ import {
   ContactAttempt,
   LeadTask 
 } from '../../types/crm'
+import { Employee } from '../../hooks/useEmployees'
 import ContactAttemptModal from './ContactAttemptModal'
 import LeadOutcomeModal from './LeadOutcomeModal'
 
 interface LeadPipelineCardProps {
   leadCard: LeadPipelineCardType
+  employees: Employee[]
   onStageChange: (leadId: string, newStage: LeadPipelineStage) => void
   onContactAttempt: (leadId: string, attempt: Omit<ContactAttempt, 'id' | 'leadPipelineId'>) => void
   onTaskComplete: (taskId: string) => void
@@ -84,12 +86,14 @@ const STAGE_CONFIG = {
 
 const STATUS_CONFIG = {
   qualificado: { label: 'Qualificado', color: 'bg-green-100 text-green-800' },
-  nao_qualificado: { label: 'Não Qualificado', color: 'bg-red-100 text-red-800' },
+  desqualificado: { label: 'Desqualificado', color: 'bg-red-100 text-red-800' },
+  nao_informado: { label: 'Não Informado', color: 'bg-yellow-100 text-yellow-800' },
   nao_definido: { label: 'Não Definido', color: 'bg-gray-100 text-gray-800' }
 }
 
 export const LeadPipelineCard: React.FC<LeadPipelineCardProps> = ({
   leadCard,
+  employees,
   onStageChange,
   onContactAttempt,
   onTaskComplete,
@@ -113,6 +117,15 @@ export const LeadPipelineCard: React.FC<LeadPipelineCardProps> = ({
     const days = Math.floor(hours / 24)
     const remainingHours = Math.round(hours % 24)
     return `${days}d ${remainingHours}h`
+  }
+
+  // Função para buscar dados do responsável
+  const getResponsavelData = (responsavelId: string) => {
+    const employee = employees.find(emp => emp.id === responsavelId)
+    return {
+      nome: employee?.name || 'Não atribuído',
+      foto: employee?.avatar || null
+    }
   }
 
   const handleContactAttemptSubmit = (attempt: Omit<ContactAttempt, 'id' | 'leadPipelineId'>) => {
@@ -201,20 +214,27 @@ export const LeadPipelineCard: React.FC<LeadPipelineCardProps> = ({
           </div>
           
           {/* Responsável */}
-          {leadCard.responsavelNome && leadCard.responsavelNome !== 'Não atribuído' && (
+          {leadCard.responsavelAtual && (
             <div className="flex items-center space-x-2 pt-2 border-t border-gray-200">
-              {leadCard.responsavelFoto ? (
-                <img 
-                  src={leadCard.responsavelFoto} 
-                  alt={leadCard.responsavelNome}
-                  className="w-6 h-6 rounded-full object-cover"
-                />
-              ) : (
-                <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center">
-                  <User size={14} className="text-white" />
-                </div>
-              )}
-              <span className="text-sm text-gray-700 font-medium">{leadCard.responsavelNome}</span>
+              {(() => {
+                const responsavelData = getResponsavelData(leadCard.responsavelAtual)
+                return (
+                  <>
+                    {responsavelData.foto ? (
+                      <img 
+                        src={responsavelData.foto} 
+                        alt={responsavelData.nome}
+                        className="w-6 h-6 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center">
+                        <User size={14} className="text-white" />
+                      </div>
+                    )}
+                    <span className="text-sm text-gray-700 font-medium">{responsavelData.nome}</span>
+                  </>
+                )
+              })()}
             </div>
           )}
         </div>

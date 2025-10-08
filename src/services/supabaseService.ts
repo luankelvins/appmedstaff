@@ -2,7 +2,141 @@ import { supabase, supabaseAdmin, Tables, Inserts, Updates } from '../config/sup
 import { UserProfile } from '../types/profile'
 import { TimeInternoForm } from '../types/crm'
 
+interface RetryConfig {
+  maxRetries: number
+  baseDelay: number
+  maxDelay: number
+  timeoutMs: number
+}
+
 export class SupabaseService {
+  private defaultRetryConfig: RetryConfig = {
+    maxRetries: 3,
+    baseDelay: 1000,
+    maxDelay: 5000,
+    timeoutMs: 10000
+  }
+
+  // Cache para perfis de usuário
+  private profileCache = new Map<string, { profile: UserProfile | null, timestamp: number }>()
+  private readonly CACHE_TTL = 5 * 60 * 1000 // 5 minutos
+
+  // Limpar cache expirado
+  private cleanExpiredCache() {
+    const now = Date.now()
+    for (const [key, value] of this.profileCache.entries()) {
+      if (now - value.timestamp > this.CACHE_TTL) {
+        this.profileCache.delete(key)
+      }
+    }
+  }
+
+  // Verificar se o cache é válido
+  private getCachedProfile(userId: string): UserProfile | null | undefined {
+    this.cleanExpiredCache()
+    const cached = this.profileCache.get(userId)
+    if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
+      console.log('[SupabaseService] Usando perfil do cache para userId:', userId)
+      return cached.profile
+    }
+    return undefined
+  }
+
+  // Armazenar no cache
+  private setCachedProfile(userId: string, profile: UserProfile | null) {
+    this.profileCache.set(userId, { profile, timestamp: Date.now() })
+  }
+
+  // Invalidar cache de perfil
+  public invalidateProfileCache(userId?: string) {
+    if (userId) {
+      this.profileCache.delete(userId)
+      console.log('[SupabaseService] Cache invalidado para userId:', userId)
+    } else {
+      this.profileCache.clear()
+      console.log('[SupabaseService] Cache de perfis limpo completamente')
+    }
+  }
+
+  // Método auxiliar para buscar perfil com fallback
+  private async fetchProfileWithFallback(userId: string): Promise<UserProfile | null> {
+    const client = supabaseAdmin || supabase
+    const usingAdmin = !!supabaseAdmin
+    
+    console.log('[SupabaseService] Usando cliente:', usingAdmin ? 'Admin (bypass RLS)' : 'Normal')
+    
+    try {
+      // Tentar buscar na tabela employees primeiro
+      const { data: employeeData, error: employeeError } = await client
+        .from('employees')
+        .select('*')
+        .eq('id', userId)
+        .single()
+
+      if (employeeData && !employeeError) {
+        console.log('[SupabaseService] Perfil encontrado na tabela employees')
+        return this.mapEmployeeToProfile(employeeData)
+      }
+
+      // Se não encontrar na employees, tentar na profiles
+      console.log('[SupabaseService] Tentando buscar na tabela profiles como fallback')
+      const { data: profileData, error: profileError } = await client
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
+
+      if (profileData && !profileError) {
+        console.log('[SupabaseService] Perfil encontrado na tabela profiles')
+        return this.mapProfileFromDB(profileData)
+      }
+
+      // Se não encontrar em nenhuma tabela
+      if (employeeError?.code === 'PGRST116' && profileError?.code === 'PGRST116') {
+        console.log('[SupabaseService] Perfil não encontrado em nenhuma tabela')
+        return null
+      }
+
+      // Se houver erro diferente de "não encontrado", lançar o erro
+      throw employeeError || profileError
+    } catch (error) {
+      console.error('[SupabaseService] Erro ao buscar perfil com fallback:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Executa uma query com retry logic e timeout
+   */
+  private async executeWithRetry<T>(
+    operation: () => Promise<T>,
+    maxRetries: number = 3,
+    timeoutMs: number = 15000 // Aumentado de 5000ms para 15000ms
+  ): Promise<T> {
+    let lastError: Error | null = null
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        // Criar uma Promise com timeout mais longo
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error(`Query timeout após ${timeoutMs}ms`)), timeoutMs)
+        })
+        
+        const result = await Promise.race([operation(), timeoutPromise])
+        return result
+      } catch (error) {
+        lastError = error as Error
+        console.log(`[SupabaseService] Tentativa ${attempt} falhou, tentando novamente em ${attempt * 1000}ms:`, error)
+        
+        if (attempt < maxRetries) {
+          // Delay exponencial: 1s, 2s, 3s
+          await new Promise(resolve => setTimeout(resolve, attempt * 1000))
+        }
+      }
+    }
+    
+    throw lastError || new Error('Operação falhou após múltiplas tentativas')
+  }
   // ==================== AUTENTICAÇÃO ====================
   
   /**
@@ -68,102 +202,29 @@ export class SupabaseService {
    * Busca perfil do usuário por ID
    */
   async getProfile(userId: string): Promise<UserProfile | null> {
-    console.log('[SupabaseService] Buscando perfil para userId:', userId)
     try {
-      console.log('[SupabaseService] Executando query no Supabase (tabela employees)...')
-      
-      // Usar supabaseAdmin se disponível para contornar RLS
-      const client = supabaseAdmin || supabase
-      const usingAdmin = !!supabaseAdmin
-      
-      console.log('[SupabaseService] Usando cliente:', usingAdmin ? 'Admin (bypass RLS)' : 'Normal')
-      
-      // Adicionar timeout de 3 segundos
-      const queryPromise = client
-        .from('employees')
-        .select('*')
-        .eq('id', userId)
-        .single()
+      console.log('[SupabaseService] Buscando perfil para userId:', userId)
 
-      const timeoutPromise = new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('Query timeout após 3 segundos')), 3000)
-      )
-
-      let result
-      try {
-        result = await Promise.race([queryPromise, timeoutPromise])
-      } catch (timeoutError: any) {
-        console.error('[SupabaseService] Timeout na query, tentando fallback...')
-        
-        // Fallback: buscar todos e filtrar no cliente
-        const allEmployeesPromise = client
-          .from('employees')
-          .select('*')
-          .limit(100)
-
-        const allTimeoutPromise = new Promise<never>((_, reject) => 
-          setTimeout(() => reject(new Error('Fallback timeout')), 3000)
-        )
-
-        try {
-          const allResult = await Promise.race([allEmployeesPromise, allTimeoutPromise])
-          const { data: allEmployees, error: allError } = allResult as any
-
-          if (allError || !allEmployees) {
-            throw timeoutError
-          }
-
-          const employee = allEmployees.find((emp: any) => emp.id === userId)
-          result = { data: employee || null, error: employee ? null : { code: 'PGRST116' } }
-        } catch (fallbackError) {
-          // FALLBACK FINAL: Usar dados mockados para desenvolvimento
-          console.error('[SupabaseService] ⚠️ FALLBACK FINAL - Usando dados mockados!')
-          console.error('[SupabaseService] ATENÇÃO: Conectividade com Supabase está com problemas!')
-          
-          // Dados mockados do usuário superadmin
-          const mockEmployee = {
-            id: userId,
-            email: 'luankelvin@soumedstaff.com',
-            dados_pessoais: {
-              nome_completo: 'Luan Kelvin',
-              cpf: '000.000.000-00',
-              telefone: '(11) 99999-9999',
-              contato: { telefone: '(11) 99999-9999' }
-            },
-            dados_profissionais: {
-              cargo: 'Desenvolvedor Full Stack',
-              departamento: 'Tecnologia',
-              nivel_acesso: 'superadmin'
-            },
-            status: 'ativo',
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          }
-          
-          result = { data: mockEmployee, error: null }
-        }
+      // Verificar cache primeiro
+      const cachedProfile = this.getCachedProfile(userId)
+      if (cachedProfile !== undefined) {
+        return cachedProfile
       }
 
-      const { data, error } = result as any
+      // Buscar perfil com fallback e retry
+      const profile = await this.executeWithRetry(async () => {
+        return await this.fetchProfileWithFallback(userId)
+      }, 3, 15000) // 3 tentativas, timeout de 15 segundos
 
-      console.log('[SupabaseService] Query executada, resultado:', { data, error })
-
-      if (error) {
-        if (error.code === 'PGRST116') {
-          console.log('[SupabaseService] Perfil não encontrado (PGRST116)')
-          return null // Não encontrado
-        }
-        console.error('[SupabaseService] Erro ao buscar perfil:', error)
-        throw error
-      }
-
-      console.log('[SupabaseService] Mapeando perfil...')
-      const mappedProfile = this.mapEmployeeToProfile(data)
-      console.log('[SupabaseService] Perfil mapeado:', mappedProfile)
-      return mappedProfile
-    } catch (err) {
-      console.error('[SupabaseService] Exceção ao buscar perfil:', err)
-      throw err
+      console.log('[SupabaseService] Perfil obtido:', profile ? 'Encontrado' : 'Não encontrado')
+      
+      // Armazenar no cache
+      this.setCachedProfile(userId, profile)
+      
+      return profile
+    } catch (error) {
+      console.error('[SupabaseService] Exceção ao buscar perfil:', error)
+      throw error
     }
   }
 
@@ -216,26 +277,37 @@ export class SupabaseService {
    * Atualiza perfil do usuário
    */
   async updateProfile(userId: string, updates: Partial<UserProfile>): Promise<UserProfile> {
-    const profileUpdate: Updates<'profiles'> = {
-      name: updates.name,
-      position: updates.position,
-      department: updates.department,
-      employee_id: updates.employeeId,
-      phone: updates.phone,
-      hire_date: updates.hireDate,
-      avatar_url: updates.avatar,
-      updated_at: new Date().toISOString()
+    try {
+      console.log('[SupabaseService] Atualizando perfil para userId:', userId, 'com dados:', updates)
+
+      // Invalidar cache antes da atualização
+      this.invalidateProfileCache(userId)
+
+      const { data, error } = await supabase
+        .from('employees')
+        .update({
+          dados_pessoais: updates,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', userId)
+        .select()
+        .single()
+
+      if (error) {
+        console.error('[SupabaseService] Erro ao atualizar perfil:', error)
+        throw error
+      }
+
+      const updatedProfile = this.mapEmployeeToProfile(data)
+      
+      // Atualizar cache com novo perfil
+      this.setCachedProfile(userId, updatedProfile)
+      
+      return updatedProfile
+    } catch (error) {
+      console.error('[SupabaseService] Exceção ao atualizar perfil:', error)
+      throw error
     }
-
-    const { data, error } = await supabase
-      .from('profiles')
-      .update(profileUpdate)
-      .eq('id', userId)
-      .select()
-      .single()
-
-    if (error) throw error
-    return this.mapProfileFromDB(data)
   }
 
   // ==================== TIME INTERNO ====================
@@ -451,16 +523,90 @@ export class SupabaseService {
       phone: dadosPessoais.contato?.telefone || dadosPessoais.phone || undefined,
       document: dadosPessoais.cpf || dadosPessoais.document || undefined,
       birthDate: dadosPessoais.data_nascimento || dadosPessoais.birth_date || undefined,
-      address: dadosPessoais.endereco ? 
-        `${dadosPessoais.endereco.logradouro}, ${dadosPessoais.endereco.cidade} - ${dadosPessoais.endereco.estado}` : 
-        undefined,
+      address: dadosPessoais.endereco ? {
+        street: dadosPessoais.endereco.logradouro || '',
+        number: dadosPessoais.endereco.numero || '',
+        complement: dadosPessoais.endereco.complemento || '',
+        neighborhood: dadosPessoais.endereco.bairro || '',
+        city: dadosPessoais.endereco.cidade || '',
+        state: dadosPessoais.endereco.estado || '',
+        zipCode: dadosPessoais.endereco.cep || '',
+        country: dadosPessoais.endereco.pais || 'Brasil'
+      } : undefined,
       role: role as 'super_admin' | 'admin' | 'manager' | 'user',
       department: dadosProfissionais.departamento || dadosProfissionais.department || '',
       position: dadosProfissionais.cargo || dadosProfissionais.position || '',
       hireDate: dadosProfissionais.data_admissao || dadosProfissionais.hire_date || data.created_at,
       manager: dadosProfissionais.gerente || dadosProfissionais.manager || undefined,
       permissions,
-      isActive: data.status === 'ativo' || data.status === 'active',
+      preferences: {
+        theme: 'system' as const,
+        language: 'pt-BR' as const,
+        timezone: 'America/Sao_Paulo',
+        dateFormat: 'DD/MM/YYYY' as const,
+        timeFormat: '24h' as const,
+        notifications: {
+          email: {
+            enabled: true,
+            frequency: 'immediate' as const,
+            types: {
+              tasks: true,
+              mentions: true,
+              updates: true,
+              security: true,
+              marketing: false
+            }
+          },
+          push: {
+            enabled: true,
+            types: {
+              tasks: true,
+              mentions: true,
+              chat: true,
+              updates: true
+            }
+          },
+          inApp: {
+            enabled: true,
+            sound: true,
+            desktop: true,
+            types: {
+              tasks: true,
+              mentions: true,
+              chat: true,
+              updates: true,
+              system: true
+            }
+          }
+        },
+        dashboard: {
+          layout: 'grid' as const,
+          widgets: [],
+          defaultView: 'dashboard' as const,
+          autoRefresh: true,
+          refreshInterval: 30
+        },
+        privacy: {
+          profileVisibility: 'team' as const,
+          showEmail: false,
+          showPhone: false,
+          showBirthDate: false,
+          showAddress: false,
+          allowDirectMessages: true,
+          allowMentions: true,
+          shareActivityStatus: true
+        }
+      },
+      security: {
+        twoFactorEnabled: false,
+        lastPasswordChange: data.created_at,
+        sessionTimeout: 480,
+        loginNotifications: true,
+        deviceTrust: {
+          enabled: false,
+          trustedDevices: []
+        }
+      },
       createdAt: data.created_at,
       updatedAt: data.updated_at
     }

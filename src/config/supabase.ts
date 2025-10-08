@@ -197,6 +197,86 @@ export interface Database {
           updated_at?: string
         }
       }
+      lead_comments: {
+         Row: {
+           id: string
+           lead_id: string
+           author_id: string
+           author_name: string
+           author_role: string
+           content: string
+           comment_type: string
+           priority: string
+           is_private: boolean
+           related_stage?: string
+           related_contact_attempt_id?: string
+           tags?: string[]
+           created_at: string
+           updated_at: string
+         }
+         Insert: {
+           id?: string
+           lead_id: string
+           author_id: string
+           author_name: string
+           author_role: string
+           content: string
+           comment_type?: string
+           priority?: string
+           is_private?: boolean
+           related_stage?: string
+           related_contact_attempt_id?: string
+           tags?: string[]
+           created_at?: string
+           updated_at?: string
+         }
+         Update: {
+           id?: string
+           lead_id?: string
+           author_id?: string
+           author_name?: string
+           author_role?: string
+           content?: string
+           comment_type?: string
+           priority?: string
+           is_private?: boolean
+           related_stage?: string
+           related_contact_attempt_id?: string
+           tags?: string[]
+           updated_at?: string
+         }
+       }
+       lead_comment_attachments: {
+         Row: {
+           id: string
+           comment_id: string
+           file_name: string
+           file_type: string
+           file_size: number
+           file_url: string
+           uploaded_by: string
+           created_at: string
+         }
+         Insert: {
+           id?: string
+           comment_id: string
+           file_name: string
+           file_type: string
+           file_size: number
+           file_url: string
+           uploaded_by: string
+           created_at?: string
+         }
+         Update: {
+           id?: string
+           comment_id?: string
+           file_name?: string
+           file_type?: string
+           file_size?: number
+           file_url?: string
+           uploaded_by?: string
+         }
+       }
     }
     Views: {
       [_ in never]: never

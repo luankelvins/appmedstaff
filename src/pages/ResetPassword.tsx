@@ -302,8 +302,8 @@ const ResetPassword: React.FC = () => {
                     { text: 'Letra minúscula', valid: /[a-z]/.test(password) },
                     { text: 'Número', valid: /\d/.test(password) },
                     { text: 'Caractere especial', valid: /[!@#$%^&*(),.?":{}|<>]/.test(password) }
-                  ].map((criterion, index) => (
-                    <div key={index} className={`flex items-center text-xs transition-colors ${criterion.valid ? 'text-green-600' : 'text-gray-400'}`}>
+                  ].map((criterion) => (
+                    <div key={criterion.text} className={`flex items-center text-xs transition-colors ${criterion.valid ? 'text-green-600' : 'text-gray-400'}`}>
                       {criterion.valid ? (
                         <CheckCircle className="w-4 h-4 mr-1.5 flex-shrink-0" />
                       ) : (

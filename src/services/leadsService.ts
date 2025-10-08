@@ -23,11 +23,60 @@ export interface ContactLead {
   motivoDesqualificacao?: string
 }
 
+interface CacheEntry<T> {
+  data: T
+  timestamp: number
+  ttl: number // Time to live em milissegundos
+}
+
 class LeadsService {
   private subscribers: Array<(leads: LeadPipelineCard[]) => void> = []
+  private cache = new Map<string, CacheEntry<any>>()
+  private readonly CACHE_TTL = {
+    PIPELINE_STATS: 5 * 60 * 1000, // 5 minutos
+    LEADS_STATS: 3 * 60 * 1000,    // 3 minutos
+    ALL_LEADS: 2 * 60 * 1000       // 2 minutos
+  }
 
   constructor() {
     // Não precisamos mais inicializar dados mockados
+  }
+
+  // Métodos de cache
+  private getCacheKey(method: string, params?: any): string {
+    return params ? `${method}_${JSON.stringify(params)}` : method
+  }
+
+  private setCache<T>(key: string, data: T, ttl: number): void {
+    this.cache.set(key, {
+      data,
+      timestamp: Date.now(),
+      ttl
+    })
+  }
+
+  private getCache<T>(key: string): T | null {
+    const entry = this.cache.get(key)
+    if (!entry) return null
+
+    const isExpired = Date.now() - entry.timestamp > entry.ttl
+    if (isExpired) {
+      this.cache.delete(key)
+      return null
+    }
+
+    return entry.data as T
+  }
+
+  private clearCache(): void {
+    this.cache.clear()
+  }
+
+  // Método público para limpar cache de estatísticas
+  public clearStatsCache(): void {
+    const statsKey = this.getCacheKey('getLeadsStats')
+    this.cache.delete(statsKey)
+    console.log('[LeadsService] Cache de estatísticas limpo')
   }
 
   // Subscrever para mudanças nos leads
@@ -47,9 +96,25 @@ class LeadsService {
 
   // Buscar todos os leads do banco de dados
   async getAllLeads(): Promise<LeadPipelineCard[]> {
+    const cacheKey = this.getCacheKey('getAllLeads')
+    
+    // Verificar cache primeiro
+    const cachedData = this.getCache<LeadPipelineCard[]>(cacheKey)
+    if (cachedData) {
+      console.log('[LeadsService] Retornando leads do cache')
+      return cachedData
+    }
+
     try {
+      console.log('[LeadsService] Buscando leads do banco de dados...')
+      
+      // Usar timeout para evitar queries longas
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Timeout na busca de leads')), 10000) // 10 segundos
+      })
+
       // Primeiro tenta com JOIN, se falhar busca sem JOIN
-      let { data: leads, error } = await supabase
+      const queryPromise = supabase
         .from('leads')
         .select(`
           *,
@@ -60,18 +125,31 @@ class LeadsService {
           )
         `)
         .order('created_at', { ascending: false })
+        .limit(1000) // Limitar para evitar queries muito grandes
+
+      let { data: leads, error } = await Promise.race([queryPromise, timeoutPromise])
 
       // Se der erro no JOIN (foreign key não existe), busca sem JOIN
       if (error) {
         console.warn('Erro ao buscar leads com JOIN, buscando sem JOIN:', error)
-        const response = await supabase
+        
+        const fallbackPromise = supabase
           .from('leads')
           .select('*')
           .order('created_at', { ascending: false })
+          .limit(1000)
         
+        const response = await Promise.race([fallbackPromise, timeoutPromise])
         leads = response.data
+        
         if (response.error) {
           console.error('Erro ao buscar leads:', response.error)
+          // Tentar retornar dados expirados do cache como último recurso
+          const expiredCache = this.cache.get(cacheKey)
+          if (expiredCache) {
+            console.log('[LeadsService] Retornando dados expirados do cache como fallback')
+            return expiredCache.data
+          }
           return []
         }
       }
@@ -80,9 +158,23 @@ class LeadsService {
         return []
       }
 
-      return leads.map(lead => this.mapDatabaseLeadToPipelineCard(lead))
+      const mappedLeads = leads.map(lead => this.mapDatabaseLeadToPipelineCard(lead))
+      
+      // Salvar no cache
+      this.setCache(cacheKey, mappedLeads, this.CACHE_TTL.ALL_LEADS)
+      console.log(`[LeadsService] ${mappedLeads.length} leads salvos no cache`)
+
+      return mappedLeads
     } catch (error) {
       console.error('Erro ao buscar leads:', error)
+      
+      // Tentar retornar dados expirados do cache como fallback
+      const expiredCache = this.cache.get(cacheKey)
+      if (expiredCache) {
+        console.log('[LeadsService] Retornando dados expirados do cache como fallback')
+        return expiredCache.data
+      }
+      
       return []
     }
   }
@@ -403,10 +495,10 @@ class LeadsService {
   // Atualizar estágio do lead
   async updateLeadStage(leadId: string, newStage: LeadPipelineStage): Promise<void> {
     try {
-      // Buscar lead atual para obter histórico
+      // Buscar lead atual para obter histórico e status atual
       const { data: currentLead, error: fetchError } = await supabase
         .from('leads')
-        .select('stage_history, assigned_to')
+        .select('stage_history, assigned_to, qualification_status')
         .eq('id', leadId)
         .single()
 
@@ -424,14 +516,23 @@ class LeadsService {
       }
       const updatedHistory = [...currentHistory, newHistoryEntry]
 
+      // Preparar dados para atualização
+      const updateData: any = {
+        pipeline_stage: newStage,
+        stage_changed_at: new Date().toISOString(),
+        stage_history: JSON.stringify(updatedHistory),
+        updated_at: new Date().toISOString()
+      }
+
+      // Lógica automática de desfecho: quando chegar ao estágio "desfecho"
+      // e o status ainda não foi definido, marcar como "nao_definido"
+      if (newStage === 'desfecho' && (!currentLead.qualification_status || currentLead.qualification_status === 'nao_informado')) {
+        updateData.qualification_status = 'nao_definido'
+      }
+
       const { error } = await supabase
         .from('leads')
-        .update({
-          pipeline_stage: newStage,
-          stage_changed_at: new Date().toISOString(),
-          stage_history: JSON.stringify(updatedHistory),
-          updated_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', leadId)
 
       if (error) {
@@ -725,91 +826,120 @@ class LeadsService {
     novosEstaSemana: number
     novosEsteMes: number
   }> {
+    const cacheKey = this.getCacheKey('getLeadsStats')
+    
+    // Verificar cache primeiro
+    const cachedData = this.getCache<any>(cacheKey)
+    if (cachedData) {
+      console.log('[LeadsService] Retornando estatísticas do cache')
+      return cachedData
+    }
+
     try {
-      // Total de leads
-      const { count: total, error: totalError } = await supabase
+      console.log('[LeadsService] Calculando estatísticas de leads...')
+      
+      // Buscar todos os leads de uma vez para calcular estatísticas
+      const { data: allLeads, error } = await supabase
         .from('leads')
-        .select('*', { count: 'exact', head: true })
+        .select('qualification_status, created_at')
+        .order('created_at', { ascending: false })
 
-      if (totalError) throw totalError
+      if (error) {
+        console.error('Erro ao buscar leads para estatísticas:', error)
+        throw error
+      }
 
-      // Leads qualificados
-      const { count: qualificado, error: qualificadoError } = await supabase
-        .from('leads')
-        .select('*', { count: 'exact', head: true })
-        .eq('qualification_status', 'qualificado')
+      if (!allLeads) {
+        throw new Error('Nenhum lead encontrado')
+      }
 
-      if (qualificadoError) throw qualificadoError
-
-      // Leads não qualificados
-      const { count: nao_qualificado, error: naoQualificadoError } = await supabase
-        .from('leads')
-        .select('*', { count: 'exact', head: true })
-        .eq('qualification_status', 'nao_qualificado')
-
-      if (naoQualificadoError) throw naoQualificadoError
-
-      // Leads não definidos
-      const { count: nao_definido, error: naoDefinidoError } = await supabase
-        .from('leads')
-        .select('*', { count: 'exact', head: true })
-        .eq('qualification_status', 'nao_definido')
-
-      if (naoDefinidoError) throw naoDefinidoError
-
-      // Novos leads hoje
+      // Calcular datas de referência
       const hoje = new Date()
       hoje.setHours(0, 0, 0, 0)
       
-      const { count: novosHoje, error: novosHojeError } = await supabase
-        .from('leads')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', hoje.toISOString())
-
-      if (novosHojeError) throw novosHojeError
-
-      // Novos leads esta semana
       const inicioSemana = new Date()
       inicioSemana.setDate(inicioSemana.getDate() - inicioSemana.getDay())
       inicioSemana.setHours(0, 0, 0, 0)
 
-      const { count: novosEstaSemana, error: novosEstaSemanaError } = await supabase
-        .from('leads')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', inicioSemana.toISOString())
-
-      if (novosEstaSemanaError) throw novosEstaSemanaError
-
-      // Novos leads este mês
       const inicioMes = new Date()
       inicioMes.setDate(1)
       inicioMes.setHours(0, 0, 0, 0)
 
-      const { count: novosEsteMes, error: novosEsteMesError } = await supabase
-        .from('leads')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', inicioMes.toISOString())
+      // Calcular estatísticas a partir dos dados carregados
+      let total = allLeads.length
+      let qualificado = 0
+      let nao_qualificado = 0
+      let nao_definido = 0
+      let novosHoje = 0
+      let novosEstaSemana = 0
+      let novosEsteMes = 0
 
-      if (novosEsteMesError) throw novosEsteMesError
+      allLeads.forEach(lead => {
+        // Contagem por status de qualificação
+        switch (lead.qualification_status) {
+          case 'qualificado':
+            qualificado++
+            break
+          case 'nao_qualificado':
+            nao_qualificado++
+            break
+          case 'nao_definido':
+          default:
+            nao_definido++
+            break
+        }
+
+        // Contagem por período de criação
+        if (lead.created_at) {
+          const createdAt = new Date(lead.created_at)
+          
+          if (createdAt >= hoje) {
+            novosHoje++
+          }
+          
+          if (createdAt >= inicioSemana) {
+            novosEstaSemana++
+          }
+          
+          if (createdAt >= inicioMes) {
+            novosEsteMes++
+          }
+        }
+      })
 
       // Calcular taxa de qualificação
-      const totalDefinidos = (qualificado || 0) + (nao_qualificado || 0)
+      const totalDefinidos = qualificado + nao_qualificado
       const taxaQualificacao = totalDefinidos > 0 
-        ? ((qualificado || 0) / totalDefinidos) * 100 
+        ? (qualificado / totalDefinidos) * 100 
         : 0
 
-      return {
-        total: total || 0,
-        qualificado: qualificado || 0,
-        nao_qualificado: nao_qualificado || 0,
-        nao_definido: nao_definido || 0,
+      const stats = {
+        total,
+        qualificado,
+        nao_qualificado,
+        nao_definido,
         taxaQualificacao: Math.round(taxaQualificacao * 10) / 10,
-        novosHoje: novosHoje || 0,
-        novosEstaSemana: novosEstaSemana || 0,
-        novosEsteMes: novosEsteMes || 0
+        novosHoje,
+        novosEstaSemana,
+        novosEsteMes
       }
+
+      // Salvar no cache
+      this.setCache(cacheKey, stats, this.CACHE_TTL.LEADS_STATS)
+      console.log('[LeadsService] Estatísticas salvas no cache')
+
+      return stats
     } catch (error) {
       console.error('Erro ao buscar estatísticas de leads:', error)
+      
+      // Tentar retornar dados expirados do cache como fallback
+      const expiredCache = this.cache.get(cacheKey)
+      if (expiredCache) {
+        console.log('[LeadsService] Retornando dados expirados do cache como fallback')
+        return expiredCache.data
+      }
+
+      // Fallback com dados padrão
       return {
         total: 0,
         qualificado: 0,
@@ -919,6 +1049,15 @@ class LeadsService {
    * Busca estatísticas do Pipeline de Leads
    */
   async getPipelineStats(): Promise<any> {
+    const cacheKey = this.getCacheKey('getPipelineStats')
+    
+    // Verificar cache primeiro
+    const cachedStats = this.getCache(cacheKey)
+    if (cachedStats) {
+      console.log('[LeadsService] Retornando estatísticas do cache')
+      return cachedStats
+    }
+
     try {
       const { data: allLeads, error } = await supabase
         .from('leads')
@@ -1035,23 +1174,30 @@ class LeadsService {
       // Tarefas vencidas (simulado - precisa de tabela de tarefas)
       const tarefasVencidas = 0
 
-      // Leads sem contato em 24h
+      // Leads sem contato em 24h - calcular a partir dos dados já carregados
       const ontem = new Date()
       ontem.setDate(ontem.getDate() - 1)
       
-      const { count: leadsSemContato24h } = await supabase
-        .from('leads')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'novo')
-        .lte('created_at', ontem.toISOString())
+      let leadsSemContato24h = 0
+      let leadsParaRecontato = 0
 
-      // Leads para recontato
-      const { count: leadsParaRecontato } = await supabase
-        .from('leads')
-        .select('*', { count: 'exact', head: true })
-        .eq('pipeline_stage', 'recontato')
+      // Calcular estatísticas a partir dos dados já carregados para evitar queries adicionais
+      allLeads?.forEach(lead => {
+        // Leads sem contato em 24h
+        if (lead.status === 'novo' && lead.created_at) {
+          const createdAt = new Date(lead.created_at)
+          if (createdAt <= ontem) {
+            leadsSemContato24h++
+          }
+        }
+        
+        // Leads para recontato
+        if (lead.pipeline_stage === 'recontato') {
+          leadsParaRecontato++
+        }
+      })
 
-      return {
+      const stats = {
         totalLeads,
         leadsPorEstagio,
         leadsPorStatus,
@@ -1067,16 +1213,50 @@ class LeadsService {
         taxaConversao,
         leadsPorResponsavel,
         tarefasVencidas,
-        leadsSemContato24h: leadsSemContato24h || 0,
-        leadsParaRecontato: leadsParaRecontato || 0
+        leadsSemContato24h,
+        leadsParaRecontato
       }
+
+      // Salvar no cache
+      this.setCache(cacheKey, stats, this.CACHE_TTL.PIPELINE_STATS)
+      console.log('[LeadsService] Estatísticas salvas no cache')
+
+      return stats
     } catch (error) {
       console.error('Erro ao buscar estatísticas do pipeline:', error)
-      return {
+      
+      // Tentar retornar dados do cache mesmo expirado como fallback
+      const expiredCache = this.cache.get(cacheKey)
+      if (expiredCache) {
+        console.log('[LeadsService] Retornando dados expirados do cache como fallback')
+        return expiredCache.data
+      }
+
+      // Fallback com dados padrão mais robustos
+      const fallbackStats = {
         totalLeads: 0,
-        leadsPorEstagio: {},
-        leadsPorStatus: {},
-        tempoMedioPorEstagio: {},
+        leadsPorEstagio: {
+          novo_lead: 0,
+          ligacao_1: 0,
+          ligacao_2: 0,
+          mensagem: 0,
+          recontato: 0,
+          desfecho: 0
+        },
+        leadsPorStatus: {
+          novo: 0,
+          em_contato: 0,
+          qualificado: 0,
+          nao_qualificado: 0
+        },
+        tempoMedioPorEstagio: {
+          novo_lead: 0,
+          ligacao_1: 0,
+          ligacao_2: 0,
+          mensagem: 0,
+          recontato: 0,
+          desfecho: 0
+        },
         tempoMedioTotal: 0,
         taxaConversao: {
           novoParaContato: 0,
@@ -1089,6 +1269,9 @@ class LeadsService {
         leadsSemContato24h: 0,
         leadsParaRecontato: 0
       }
+
+      console.log('[LeadsService] Retornando dados padrão como fallback')
+      return fallbackStats
     }
   }
 }

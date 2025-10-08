@@ -1,6 +1,6 @@
 import React, { Suspense, useEffect } from 'react'
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
-import { useAuth } from './contexts/AuthContext'
+import { useAuth } from './hooks/useAuth'
 import { Layout } from './components/Layout/Layout'
 import { Dashboard, Login, Feed, Tasks, Contacts } from './pages'
 import ForgotPassword from './pages/ForgotPassword'

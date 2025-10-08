@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { chatService, ChatChannel, ChatMessage } from '../services/chatService'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from './useAuth'
 
 export interface UseChatReturn {
   channels: ChatChannel[]

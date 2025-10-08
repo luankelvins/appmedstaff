@@ -1,7 +1,7 @@
 import React from 'react'
 import { usePermissions } from '../hooks/usePermissions'
 import { useChat } from '../hooks/useChat'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../hooks/useAuth'
 import { ChatSidebar } from '../components/Chat/ChatSidebar'
 import { ChatWindow } from '../components/Chat/ChatWindow'
 import { MessageSquare } from 'lucide-react'

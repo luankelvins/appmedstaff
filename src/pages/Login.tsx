@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../hooks/useAuth'
 import { Loading } from '../components/UI/Loading'
 import { Eye, EyeOff, CheckCircle } from 'lucide-react'
 

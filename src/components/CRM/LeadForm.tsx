@@ -64,7 +64,7 @@ const LeadForm: React.FC<LeadFormProps> = ({
     origem: isInternal ? 'time_interno' : 'site',
     origemDetalhes: '',
     observacoes: '',
-    status: 'novo',
+    desfecho: 'nao_definido',
     responsavel: '',
     dataContato: '',
     proximaAcao: '',
@@ -504,29 +504,26 @@ const LeadForm: React.FC<LeadFormProps> = ({
                       <option value="">Selecione um responsável</option>
                       {employees.map((employee) => (
                         <option key={employee.id} value={employee.id}>
-                          {employee.dados_pessoais?.nome_completo || employee.email}
+                          {employee.name || employee.email}
                         </option>
                       ))}
                     </select>
                   </div>
 
-                  {/* Status */}
+                  {/* Desfecho */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Status
+                      Desfecho
                     </label>
                     <select
-                      value={formData.status}
-                      onChange={(e) => handleInputChange('status', e.target.value)}
+                      value={formData.desfecho}
+                      onChange={(e) => handleInputChange('desfecho', e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     >
-                      <option value="novo">Novo</option>
-                      <option value="contatado">Contatado</option>
+                      <option value="nao_definido">Não Definido</option>
                       <option value="qualificado">Qualificado</option>
-                      <option value="proposta">Proposta</option>
-                      <option value="negociacao">Negociação</option>
-                      <option value="ganho">Ganho</option>
-                      <option value="perdido">Perdido</option>
+                      <option value="desqualificado">Desqualificado</option>
+                      <option value="nao_informado">Não Informado</option>
                     </select>
                   </div>
                 </div>

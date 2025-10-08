@@ -1,7 +1,7 @@
 import { useCallback } from 'react'
 import { enhancedAuditService } from '../services/enhancedAuditService'
 import { AuditAction, AuditEntity } from '../types/audit'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from './useAuth'
 
 export const useEnhancedAuditLogger = () => {
   const { user } = useAuth()

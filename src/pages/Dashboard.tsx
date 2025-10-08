@@ -1,6 +1,6 @@
 import React from 'react';
 import { usePermissions } from '../hooks/usePermissions';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 import MainDashboard from '../components/Dashboard/MainDashboard';
 
 export const Dashboard = () => {

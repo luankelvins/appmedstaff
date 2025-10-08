@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Clock, LogIn, LogOut, Loader2 } from 'lucide-react'
-import { useAuth } from '../../contexts/AuthContext'
+import { useAuth } from '../../hooks/useAuth'
 import { timeTrackingService } from '../../services/timeTrackingService'
 import { TimeEntryFilter } from '../../types/timeTracking'
 import { toast } from 'react-hot-toast'

@@ -72,11 +72,14 @@ const Leads: React.FC = () => {
     try {
       setLoading(true)
       
+      // Limpar cache de estatísticas para garantir dados atualizados
+      leadsService.clearStatsCache()
+      
       // Carregar leads
       const contactLeads = await leadsService.getContactLeads()
       setLeads(contactLeads)
       
-      // Carregar estatísticas do banco
+      // Carregar estatísticas do banco (sem cache)
       const leadsStats = await leadsService.getLeadsStats()
       setStats(leadsStats)
       

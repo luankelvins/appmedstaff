@@ -3,7 +3,8 @@ import { render, screen } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
 import React from 'react'
 import Profile from '../Profile'
-import { User, useAuth } from '../../contexts/AuthContext'
+import { User } from '../../contexts/AuthContext'
+import { useAuth } from '../../hooks/useAuth'
 import { useProfile } from '../../services/profileService'
 
 // Mock do serviço de perfil

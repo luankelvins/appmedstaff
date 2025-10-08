@@ -87,10 +87,33 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({
               </p>
             </div>
             
-            {/* Actions menu */}
-            <div className={`flex items-center space-x-1 transition-opacity ${
-              showActions ? 'opacity-100' : 'opacity-0'
-            }`}>
+            {/* Responsável e Actions */}
+            <div className="flex items-center space-x-2">
+              {/* Foto/Iniciais do Responsável */}
+              <div className="flex items-center">
+                {(leadCard as any).responsavelFoto ? (
+                  <img 
+                    src={(leadCard as any).responsavelFoto} 
+                    alt={(leadCard as any).responsavelNome || 'Responsável'}
+                    className="w-8 h-8 rounded-full object-cover border-2 border-blue-200"
+                    title={(leadCard as any).responsavelNome || 'Responsável'}
+                  />
+                ) : (
+                  <div 
+                    className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center border-2 border-blue-200"
+                    title={(leadCard as any).responsavelNome || 'Responsável'}
+                  >
+                    <span className="text-white text-xs font-semibold">
+                      {((leadCard as any).responsavelNome || 'NA').split(' ').map((n: string) => n[0]).join('').substring(0, 2)}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Actions menu */}
+              <div className={`flex items-center space-x-1 transition-opacity ${
+                showActions ? 'opacity-100' : 'opacity-0'
+              }`}>
               <button
                 onClick={(e) => {
                   e.stopPropagation()
@@ -121,6 +144,7 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({
               >
                 <PhoneCall size={16} />
               </button>
+              </div>
             </div>
           </div>
 

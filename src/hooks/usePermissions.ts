@@ -1,4 +1,4 @@
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from './useAuth'
 import { PermissionSlug } from '../types/auth'
 
 export const usePermissions = () => {

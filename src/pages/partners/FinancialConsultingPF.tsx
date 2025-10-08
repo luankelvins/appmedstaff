@@ -439,8 +439,8 @@ export const FinancialConsultingPF: React.FC = () => {
                 <div>
                   <h3 className="font-medium text-gray-900 mb-3">Objetivos Financeiros</h3>
                   <div className="space-y-1">
-                    {selectedConsultation.financialGoals.map((goal, index) => (
-                      <div key={index} className="flex items-center">
+                    {selectedConsultation.financialGoals.map((goal) => (
+                      <div key={goal} className="flex items-center">
                         <CheckCircle size={16} className="text-green-500 mr-2" />
                         <span className="text-sm text-gray-900">{goal}</span>
                       </div>

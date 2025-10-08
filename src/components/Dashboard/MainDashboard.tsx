@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Settings, Plus, LayoutGrid, RefreshCw, X, Grid3X3, Palette, Monitor, Save } from 'lucide-react'
 import { AVAILABLE_WIDGETS, WidgetConfig } from './widgets'
-import { useAuth } from '../../contexts/AuthContext'
+import { useAuth } from '../../hooks/useAuth'
 
 interface DashboardWidget {
   id: string

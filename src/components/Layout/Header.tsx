@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Bell, Menu, User, LogOut, Settings, MessageSquare, Play, Square } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '../../contexts/AuthContext'
+import { useAuth } from '../../hooks/useAuth'
 import { usePermissions } from '../../hooks/usePermissions'
 import NotificationDropdown from '../Notifications/NotificationDropdown'
 import DirectorNotificationDropdown from '../Notifications/DirectorNotificationDropdown'
