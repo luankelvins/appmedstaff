@@ -19,6 +19,14 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     params: {
       eventsPerSecond: 10
     }
+  },
+  global: {
+    headers: {
+      'X-Client-Info': 'medstaff-app'
+    }
+  },
+  db: {
+    schema: 'public'
   }
 })
 
@@ -30,6 +38,14 @@ export const supabaseAdmin = supabaseServiceRoleKey
       auth: {
         autoRefreshToken: false,
         persistSession: false
+      },
+      global: {
+        headers: {
+          'X-Client-Info': 'medstaff-app-admin'
+        }
+      },
+      db: {
+        schema: 'public'
       }
     })
   : null
