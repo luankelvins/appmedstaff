@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Menu - MedStaff</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            border-left: 4px solid #007bff;
+            background-color: #f8f9fa;
+        }
+        .button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .button:hover {
+            background-color: #0056b3;
+        }
+        .logs {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 10px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Debug Menu - MedStaff</h1>
+        
+        <div class="status" id="status">
+            Aguardando ação...
+        </div>
+
+        <button class="button" onclick="checkAuthState()">Verificar Estado de Autenticação</button>
+        <button class="button" onclick="openMainApp()">Abrir Aplicação Principal</button>
+        <button class="button" onclick="clearLogs()">Limpar Logs</button>
+
+        <h3>📋 Logs do Console:</h3>
+        <div class="logs" id="logs"></div>
+    </div>
+
+    <script>
+        let originalConsoleLog = console.log;
+        let originalConsoleError = console.error;
+        let originalConsoleWarn = console.warn;
+        
+        function logMessage(type, ...args) {
+            const timestamp = new Date().toLocaleTimeString();
+            const message = `[${timestamp}] ${type.toUpperCase()}: ${args.map(arg => 
+                typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+            ).join(' ')}`;
+            
+            const logsDiv = document.getElementById('logs');
+            logsDiv.textContent += message + '\n';
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+        }
+
+        // Interceptar logs do console
+        console.log = function(...args) {
+            logMessage('log', ...args);
+            originalConsoleLog.apply(console, args);
+        };
+
+        console.error = function(...args) {
+            logMessage('error', ...args);
+            originalConsoleError.apply(console, args);
+        };
+
+        console.warn = function(...args) {
+            logMessage('warn', ...args);
+            originalConsoleWarn.apply(console, args);
+        };
+
+        function updateStatus(message) {
+            document.getElementById('status').textContent = message;
+        }
+
+        function checkAuthState() {
+            updateStatus('Verificando estado de autenticação...');
+            
+            const token = localStorage.getItem('auth_token');
+            const userData = localStorage.getItem('user_data');
+            
+            console.log('🔑 Token encontrado:', !!token);
+            console.log('👤 Dados do usuário encontrados:', !!userData);
+            
+            if (userData) {
+                try {
+                    const user = JSON.parse(userData);
+                    console.log('👤 Usuário:', user);
+                    console.log('🔑 Permissões:', user.permissions);
+                    updateStatus(`Usuário logado: ${user.name || user.email}`);
+                } catch (error) {
+                    console.error('❌ Erro ao parsear dados do usuário:', error);
+                    updateStatus('Erro ao verificar dados do usuário');
+                }
+            } else {
+                updateStatus('Usuário não está logado');
+            }
+        }
+
+        function openMainApp() {
+            updateStatus('Abrindo aplicação principal...');
+            console.log('🚀 Redirecionando para aplicação principal');
+            window.location.href = '/';
+        }
+
+        function clearLogs() {
+            document.getElementById('logs').textContent = '';
+            updateStatus('Logs limpos');
+        }
+
+        // Verificar estado inicial
+        window.addEventListener('load', () => {
+            console.log('🔍 Debug Menu carregado');
+            checkAuthState();
+        });
+
+        // Interceptar mensagens do React DevTools e outras extensões
+        window.addEventListener('message', (event) => {
+            if (event.data && event.data.type) {
+                console.log('📨 Mensagem recebida:', event.data);
+            }
+        });
+    </script>
+</body>
+</html>
