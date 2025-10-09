@@ -289,6 +289,13 @@ export const menuConfig: MenuStructure = [
         icon: 'Shield',
         path: '/audit',
         permission: 'audit.read'
+      },
+      {
+        id: 'security-dashboard',
+        label: 'Dashboard de Segurança',
+        icon: 'Shield',
+        path: '/security',
+        permission: 'security.view'
       }
     ]
   },

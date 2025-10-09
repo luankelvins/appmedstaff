@@ -1,4 +1,5 @@
 import { authService } from '../services/authService.js';
+import { extractRequestInfo } from '../utils/requestUtils.js';
 
 export class AuthController {
   static async login(req, res) {
@@ -12,7 +13,10 @@ export class AuthController {
         });
       }
 
-      const authResponse = await authService.login({ email, password });
+      // Extrair informações de segurança do request
+      const requestInfo = extractRequestInfo(req);
+
+      const authResponse = await authService.login({ email, password }, requestInfo);
       console.log('✅ Login bem-sucedido para:', email);
       res.json(authResponse);
     } catch (error) {
@@ -27,7 +31,11 @@ export class AuthController {
   static async register(req, res) {
     try {
       const registerData = req.body;
-      const authResponse = await authService.register(registerData);
+      
+      // Extrair informações de segurança do request
+      const requestInfo = extractRequestInfo(req);
+      
+      const authResponse = await authService.register(registerData, requestInfo);
       res.json(authResponse);
     } catch (error) {
       console.error('Erro no registro:', error);
@@ -95,6 +103,81 @@ export class AuthController {
       console.error('Erro ao atualizar senha:', error);
       res.status(400).json({ 
         message: error.message || 'Erro ao atualizar senha' 
+      });
+    }
+  }
+
+  static async forgotPassword(req, res) {
+    try {
+      const { email } = req.body;
+      
+      // Extrair informações de segurança do request
+      const requestInfo = extractRequestInfo(req);
+      
+      await authService.forgotPassword(email, requestInfo);
+      res.json({ message: 'Email de recuperação enviado com sucesso' });
+    } catch (error) {
+      console.error('Erro ao solicitar recuperação de senha:', error);
+      res.status(400).json({ 
+        message: error.message || 'Erro ao solicitar recuperação de senha' 
+      });
+    }
+  }
+
+  static async resetPassword(req, res) {
+    try {
+      const { token, password } = req.body;
+      await authService.resetPassword(token, password);
+      res.json({ message: 'Senha redefinida com sucesso' });
+    } catch (error) {
+      console.error('Erro ao redefinir senha:', error);
+      res.status(400).json({ 
+        message: error.message || 'Erro ao redefinir senha' 
+      });
+    }
+  }
+
+  static async logout(req, res) {
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '');
+      if (token) {
+        await authService.logout(token);
+      }
+      res.json({ message: 'Logout realizado com sucesso' });
+    } catch (error) {
+      console.error('Erro ao fazer logout:', error);
+      res.status(400).json({ 
+        message: error.message || 'Erro ao fazer logout' 
+      });
+    }
+  }
+
+  static async refreshToken(req, res) {
+    try {
+      const { refreshToken } = req.body;
+      const newTokens = await authService.refreshToken(refreshToken);
+      res.json(newTokens);
+    } catch (error) {
+      console.error('Erro ao renovar token:', error);
+      res.status(401).json({ 
+        message: error.message || 'Erro ao renovar token' 
+      });
+    }
+  }
+
+  static async getCurrentUser(req, res) {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ message: 'Usuário não autenticado' });
+      }
+      
+      const user = await authService.getCurrentUser(userId);
+      res.json(user);
+    } catch (error) {
+      console.error('Erro ao buscar usuário atual:', error);
+      res.status(400).json({ 
+        message: error.message || 'Erro ao buscar usuário atual' 
       });
     }
   }

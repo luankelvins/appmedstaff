@@ -21,13 +21,16 @@ import ChatReal from './pages/ChatReal'
 import RecurringSeries from './pages/RecurringSeries'
 import EmployeeCardDemo from './pages/EmployeeCardDemo'
 import EmployeeProfileDemo from './components/Integration/EmployeeProfileDemo'
+import SecurityDashboard from './components/SecurityDashboard'
 
 import TaskAssignmentPage from './pages/TaskAssignment'
 import { ErrorBoundary } from './components/ErrorBoundary/ErrorBoundary'
 import { LoadingCard } from './components/UI/LoadingStates'
 import { ToastProvider } from './contexts/ToastContext'
+import { NotificationProvider } from './components/Notifications/NotificationSystem'
 
 import ImprovedFeedDemo from './pages/ImprovedFeedDemo'
+import FormExample from './components/Examples/FormExample'
 
 // Componente de loading para Suspense
 const LoadingFallback = () => (
@@ -69,8 +72,9 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <ToastProvider>
-        <Suspense fallback={<LoadingFallback />}>
+      <NotificationProvider>
+        <ToastProvider>
+          <Suspense fallback={<LoadingFallback />}>
           {loading ? (
             <>
               {console.log('[App] Renderizando LoadingFallback')}
@@ -130,6 +134,9 @@ function App() {
             {/* Auditoria */}
             <Route path="audit" element={<Audit />} />
             
+            {/* Dashboard de Segurança */}
+            <Route path="security" element={<SecurityDashboard />} />
+            
             {/* Notificações */}
             <Route path="notifications" element={<Notifications />} />
             
@@ -143,6 +150,7 @@ function App() {
             <Route path="demo/employee-card" element={<EmployeeCardDemo />} />
             <Route path="demo/employee-profile" element={<EmployeeProfileDemo />} />
             <Route path="demo/improved-feed" element={<ImprovedFeedDemo />} />
+            <Route path="demo/form-validation" element={<FormExample />} />
             
 
           </Route>
@@ -154,8 +162,9 @@ function App() {
             </Routes>
           </>
         )}
-        </Suspense>
-      </ToastProvider>
+          </Suspense>
+        </ToastProvider>
+      </NotificationProvider>
     </ErrorBoundary>
   )
 }

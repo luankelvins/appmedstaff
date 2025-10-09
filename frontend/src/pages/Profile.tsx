@@ -12,38 +12,46 @@ import { TimeEditRequestTab } from '../components/Profile/TimeEditRequestTab'
 import { ProfileUpdateRequest, PasswordChangeRequest, UserPreferences, NotificationPreferences } from '../types/profile'
 import { hasPermission } from '../utils/permissions'
 import { Loader2 } from 'lucide-react'
+import { useApiNotifications } from '../components/Notifications/NotificationSystem'
 
 export type ProfileTab = 'personal' | 'preferences' | 'security' | 'activity' | 'notifications' | 'hour-bank' | 'time-edit-requests'
 
 export const Profile: React.FC = () => {
   const { profile, loading, error, updateProfile, changePassword, uploadAvatar, exportActivity } = useProfile()
   const [activeTab, setActiveTab] = useState<ProfileTab>('personal')
+  const { notifySuccess, notifyError, notifyWarning } = useApiNotifications()
 
   // Verificar permissões
   useEffect(() => {
     if (!hasPermission('profile.view')) {
-      // Redirecionar ou mostrar erro de acesso negado
+      notifyError('Acesso Negado', 'Você não tem permissão para visualizar o perfil')
       console.warn('Usuário não tem permissão para visualizar perfil')
     }
-  }, [])
+  }, [notifyError])
 
   const handleProfileUpdate = async (data: ProfileUpdateRequest) => {
     try {
       await updateProfile(data)
-      // Mostrar notificação de sucesso
+      notifySuccess('Perfil atualizado com sucesso!')
     } catch (error) {
       console.error('Erro ao atualizar perfil:', error)
-      // Mostrar notificação de erro
+      notifyError(
+        'Erro ao atualizar perfil',
+        error instanceof Error ? error.message : 'Erro desconhecido'
+      )
     }
   }
 
   const handlePasswordChange = async (data: PasswordChangeRequest) => {
     try {
       await changePassword(data)
-      // Mostrar notificação de sucesso
+      notifySuccess('Senha alterada com sucesso!')
     } catch (error) {
       console.error('Erro ao alterar senha:', error)
-      // Mostrar notificação de erro
+      notifyError(
+        'Erro ao alterar senha',
+        error instanceof Error ? error.message : 'Erro desconhecido'
+      )
     }
   }
 

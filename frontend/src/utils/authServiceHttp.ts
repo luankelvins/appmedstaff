@@ -128,6 +128,14 @@ export class AuthServiceHttp {
     return Promise.resolve();
   }
 
+  setToken(token: string): void {
+    localStorage.setItem('auth_token', token);
+  }
+
+  setUser(user: any): void {
+    localStorage.setItem('user_data', JSON.stringify(user));
+  }
+
   getStoredToken(): string | null {
     return localStorage.getItem('auth_token');
   }
@@ -135,6 +143,12 @@ export class AuthServiceHttp {
   getStoredUser(): any | null {
     const userData = localStorage.getItem('user_data');
     return userData ? JSON.parse(userData) : null;
+  }
+
+  clearStorage(): void {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('user_data');
+    localStorage.removeItem('refreshToken');
   }
 
   isAuthenticated(): boolean {
