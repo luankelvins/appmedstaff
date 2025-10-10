@@ -14,13 +14,13 @@ Esta migração remove a tabela `profiles` do banco de dados, pois ela foi subst
 
 ### 1. Backup (OBRIGATÓRIO)
 ```sql
--- Execute no Supabase SQL Editor ou psql
+-- Execute no PostgreSQL via psql
 \i database/backup_profiles_migration.sql
 ```
 
 ### 2. Migração Principal
 ```sql
--- Execute no Supabase SQL Editor ou psql
+-- Execute no PostgreSQL via psql
 \i database/remove_profiles_migration.sql
 ```
 
@@ -92,7 +92,6 @@ CREATE INDEX idx_profiles_employee_id ON profiles(employee_id);
 Os seguintes arquivos já foram atualizados no código:
 - `src/services/profileService.ts`
 - `src/components/TasksWidget.tsx`
-- `src/components/SupabaseTest.tsx`
 - `src/types/profile.ts`
 - `src/services/__tests__/profileService.test.ts`
 

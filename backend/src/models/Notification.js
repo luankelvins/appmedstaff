@@ -152,17 +152,21 @@ class Notification {
 
   // Contar notificações não lidas por usuário
   static async countUnreadByUser(userId) {
-    const { count, error } = await supabase
-      .from('notifications')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .eq('read', false);
+    try {
+      const client = await pool.connect();
+      
+      const result = await client.query(
+        'SELECT COUNT(*) FROM notifications WHERE user_id = $1 AND read = false',
+        [userId]
+      );
+      
+      client.release();
 
-    if (error) {
-      throw new Error('Erro ao contar notificações não lidas: ' + error.message);
+      return parseInt(result.rows[0].count);
+    } catch (error) {
+      console.error('Erro ao contar notificações não lidas:', error);
+      throw error;
     }
-
-    return count;
   }
 
   // Atualizar notificação
@@ -241,45 +245,54 @@ class Notification {
 
   // Marcar múltiplas notificações como lidas
   static async markMultipleAsRead(notificationIds) {
-    const { error } = await supabase
-      .from('notifications')
-      .update({ read: true, updated_at: new Date().toISOString() })
-      .in('id', notificationIds);
+    try {
+      const client = await pool.connect();
+      
+      const placeholders = notificationIds.map((_, index) => `$${index + 1}`).join(',');
+      await client.query(
+        `UPDATE notifications SET read = true, updated_at = NOW() WHERE id IN (${placeholders})`,
+        notificationIds
+      );
 
-    if (error) {
-      throw new Error('Erro ao marcar notificações como lidas: ' + error.message);
+      client.release();
+      return true;
+    } catch (error) {
+      console.error('Erro ao marcar notificações como lidas:', error);
+      throw error;
     }
-
-    return true;
   }
 
   // Marcar todas as notificações de um usuário como lidas
   static async markAllAsReadByUser(userId) {
-    const { error } = await supabase
-      .from('notifications')
-      .update({ read: true, updated_at: new Date().toISOString() })
-      .eq('user_id', userId)
-      .eq('read', false);
+    try {
+      const client = await pool.connect();
+      
+      await client.query(
+        'UPDATE notifications SET read = true, updated_at = NOW() WHERE user_id = $1 AND read = false',
+        [userId]
+      );
 
-    if (error) {
-      throw new Error('Erro ao marcar todas as notificações como lidas: ' + error.message);
+      client.release();
+      return true;
+    } catch (error) {
+      console.error('Erro ao marcar todas as notificações como lidas:', error);
+      throw error;
     }
-
-    return true;
   }
 
   // Deletar notificação
   async delete() {
-    const { error } = await supabase
-      .from('notifications')
-      .delete()
-      .eq('id', this.id);
+    try {
+      const client = await pool.connect();
+      
+      await client.query('DELETE FROM notifications WHERE id = $1', [this.id]);
 
-    if (error) {
-      throw new Error('Erro ao deletar notificação: ' + error.message);
+      client.release();
+      return true;
+    } catch (error) {
+      console.error('Erro ao deletar notificação:', error);
+      throw error;
     }
-
-    return true;
   }
 
   // Deletar notificações antigas
@@ -287,16 +300,20 @@ class Notification {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysOld);
 
-    const { error } = await supabase
-      .from('notifications')
-      .delete()
-      .lt('created_at', cutoffDate.toISOString());
+    try {
+      const client = await pool.connect();
+      
+      await client.query(
+        'DELETE FROM notifications WHERE created_at < $1',
+        [cutoffDate.toISOString()]
+      );
 
-    if (error) {
-      throw new Error('Erro ao deletar notificações antigas: ' + error.message);
+      client.release();
+      return true;
+    } catch (error) {
+      console.error('Erro ao deletar notificações antigas:', error);
+      throw error;
     }
-
-    return true;
   }
 
   // Criar notificação em lote
@@ -318,16 +335,36 @@ class Notification {
       };
     });
 
-    const { data, error } = await supabase
-      .from('notifications')
-      .insert(validatedNotifications)
-      .select();
+    try {
+      const client = await pool.connect();
+      
+      const values = validatedNotifications.map((notif, index) => {
+        const baseIndex = index * 7;
+        return `($${baseIndex + 1}, $${baseIndex + 2}, $${baseIndex + 3}, $${baseIndex + 4}, $${baseIndex + 5}, $${baseIndex + 6}, $${baseIndex + 7})`;
+      }).join(', ');
 
-    if (error) {
-      throw new Error('Erro ao criar notificações em lote: ' + error.message);
+      const params = validatedNotifications.flatMap(notif => [
+        notif.id,
+        notif.user_id,
+        notif.title,
+        notif.message,
+        notif.type,
+        notif.read,
+        JSON.stringify(notif.data)
+      ]);
+
+      const result = await client.query(`
+        INSERT INTO notifications (id, user_id, title, message, type, read, data)
+        VALUES ${values}
+        RETURNING *
+      `, params);
+
+      client.release();
+      return result.rows.map(item => new Notification(item));
+    } catch (error) {
+      console.error('Erro ao criar notificações em lote:', error);
+      throw error;
     }
-
-    return data.map(item => new Notification(item));
   }
 
   // Métodos auxiliares

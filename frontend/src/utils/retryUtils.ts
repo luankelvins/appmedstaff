@@ -78,25 +78,24 @@ export async function withRetry<T>(
 }
 
 /**
- * Retry específico para queries do Supabase
+ * Retry específico para queries de API
  */
-export async function withSupabaseRetry<T>(
+export async function withApiRetry<T>(
   operation: () => Promise<{ data: T | null; error: any }>,
   options: RetryOptions = {}
 ): Promise<{ data: T | null; error: any; attempts: number }> {
   const result = await withRetry(operation, {
     ...options,
     retryCondition: (error) => {
-      // Condições específicas para Supabase
+      // Condições específicas para APIs
       return (
-        error?.code === 'PGRST301' || // timeout
         error?.message?.includes('timeout') ||
         error?.message?.includes('network') ||
         error?.message?.includes('fetch') ||
         error?.message?.includes('aborted') ||
         error?.status >= 500 ||
         error?.name === 'AbortError' ||
-        // Erros de conexão específicos do Supabase
+        // Erros de conexão específicos de APIs
         error?.message?.includes('Failed to fetch') ||
         error?.message?.includes('NetworkError')
       )

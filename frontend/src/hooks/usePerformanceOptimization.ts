@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useRef, useEffect } from 'react'
+import { useMemo, useCallback, useRef, useEffect, useState } from 'react'
 import { debounce, throttle } from 'lodash'
 
 // Hook para debounce de valores
@@ -164,8 +164,8 @@ export function useVirtualization(
   }
 }
 
-// Hook para otimização de queries do Supabase
-export function useSupabaseQuery<T>(
+// Hook para otimização de queries de API
+export function useApiQuery<T>(
   queryFn: () => Promise<T>,
   dependencies: any[] = [],
   options: {

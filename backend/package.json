@@ -15,7 +15,6 @@
     "@sentry/node": "^10.19.0",
     "@sentry/profiling-node": "^10.19.0",
     "@sentry/tracing": "^7.120.4",
-    "@supabase/supabase-js": "^2.74.0",
     "@whiskeysockets/baileys": "^6.7.20",
     "archiver": "^7.0.1",
     "argon2": "^0.44.0",

@@ -1,5 +1,7 @@
 # Solução: Erro HTTP 400 Bad Request na Autenticação
 
+> **⚠️ NOTA HISTÓRICA**: Este documento descreve um problema que ocorreu quando o sistema ainda utilizava Supabase. O sistema foi migrado para PostgreSQL e não utiliza mais Supabase para autenticação.
+
 ## 🔍 **Problema Identificado**
 
 O erro `HTTP 400 Bad Request` com a mensagem "Invalid login credentials" estava ocorrendo porque o usuário `luankelvin@soumedstaff.com` não existia no sistema de autenticação do Supabase.

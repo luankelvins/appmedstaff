@@ -324,27 +324,38 @@ class Expense {
 
   // Calcular total por período
   static async getTotalByPeriod(startDate, endDate, filters = {}) {
-    let query = supabase
-      .from('expenses')
-      .select('valor')
-      .gte('data_vencimento', startDate)
-      .lte('data_vencimento', endDate);
+    try {
+      const client = await pool.connect();
+      
+      let queryText = `
+        SELECT COALESCE(SUM(valor), 0) as total 
+        FROM expenses 
+        WHERE data_vencimento >= $1 AND data_vencimento <= $2
+      `;
+      const queryParams = [startDate, endDate];
+      let paramIndex = 3;
 
-    if (filters.status) {
-      query = query.eq('status', filters.status);
+      if (filters.status) {
+        queryText += ` AND status = $${paramIndex}`;
+        queryParams.push(filters.status);
+        paramIndex++;
+      }
+
+      if (filters.categoria_id) {
+        queryText += ` AND categoria_id = $${paramIndex}`;
+        queryParams.push(filters.categoria_id);
+        paramIndex++;
+      }
+
+      const result = await client.query(queryText, queryParams);
+      
+      client.release();
+
+      return parseFloat(result.rows[0].total) || 0;
+    } catch (error) {
+      console.error('Erro ao calcular total de despesas:', error);
+      throw error;
     }
-
-    if (filters.categoria_id) {
-      query = query.eq('categoria_id', filters.categoria_id);
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      throw new Error('Erro ao calcular total de despesas: ' + error.message);
-    }
-
-    return data.reduce((total, expense) => total + parseFloat(expense.valor), 0);
   }
 
   // Métodos auxiliares

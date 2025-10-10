@@ -12,7 +12,7 @@ Este guia descreve como executar e implementar testes de integração para as fu
 ```bash
 # Instalar dependências de teste
 npm install --save-dev @testing-library/react @testing-library/jest-dom
-npm install --save-dev @supabase/supabase-js
+npm install --save-dev pg  # PostgreSQL client
 npm install --save-dev msw  # Mock Service Worker para APIs
 ```
 
@@ -36,7 +36,7 @@ CREATE DATABASE medstaff_test;
 describe('Sistema de Auditoria - Integração', () => {
   beforeEach(async () => {
     // Limpar dados de teste
-    await supabase.from('audit_logs').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+    await pool.query('DELETE FROM audit_logs WHERE id != $1', ['00000000-0000-0000-0000-000000000000'])
   })
 
   test('Deve registrar ação e recuperar logs', async () => {
@@ -383,8 +383,6 @@ jobs:
     - name: Run integration tests
       run: npm run test:integration
       env:
-        SUPABASE_URL: ${{ secrets.SUPABASE_TEST_URL }}
-        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_TEST_ANON_KEY }}
         DATABASE_URL: postgresql://postgres:postgres@localhost:5432/medstaff_test
     
     - name: Upload coverage reports
@@ -496,11 +494,11 @@ psql -h localhost -U postgres -c "SELECT version();"
 ```typescript
 // Usar transações para rollback automático
 beforeEach(async () => {
-  await supabase.rpc('begin_transaction')
+  await pool.query('BEGIN')
 })
 
 afterEach(async () => {
-  await supabase.rpc('rollback_transaction')
+  await pool.query('ROLLBACK')
 })
 ```
 

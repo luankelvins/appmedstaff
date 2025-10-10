@@ -332,7 +332,7 @@ npm run compliance:check
 - Suporte a milhões de eventos de auditoria
 - Processamento em tempo real de alertas
 - Retenção configurável de dados
-- Escalabilidade horizontal via Supabase
+- Escalabilidade horizontal via PostgreSQL
 
 ### 12. Próximos Passos
 
