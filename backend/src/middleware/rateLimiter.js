@@ -1,4 +1,4 @@
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { config } from '../config/environment.js';
 import securityLogger from '../services/securityLogger.js';
 import { alertService } from '../services/alertService.js';
@@ -18,7 +18,7 @@ export const loginLimiter = rateLimit({
   keyGenerator: (req) => {
     // Usar IP + email (se fornecido) para identificar tentativas
     const email = req.body?.email || '';
-    return `${req.ip}:${email}`;
+    return `${ipKeyGenerator(req)}:${email}`;
   },
   handler: async (req, res) => {
     // Log bloqueio por rate limiting
@@ -59,7 +59,7 @@ export const registerLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => req.ip,
+  keyGenerator: ipKeyGenerator,
   handler: async (req, res) => {
     // Log bloqueio por rate limiting
     const { ip, userAgent } = extractRequestInfo(req);
@@ -101,7 +101,7 @@ export const passwordResetLimiter = rateLimit({
   legacyHeaders: false,
   keyGenerator: (req) => {
     const email = req.body?.email || '';
-    return `${req.ip}:${email}`;
+    return `${ipKeyGenerator(req)}:${email}`;
   },
   handler: async (req, res) => {
     // Log bloqueio por rate limiting
@@ -134,7 +134,7 @@ export const apiLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => req.ip,
+  keyGenerator: ipKeyGenerator,
   handler: (req, res) => {
     res.status(429).json({
       error: 'Muitas requisições. Tente novamente em alguns minutos.',
@@ -153,7 +153,7 @@ export const refreshTokenLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => req.ip,
+  keyGenerator: ipKeyGenerator,
   handler: (req, res) => {
     res.status(429).json({
       error: 'Muitas tentativas de refresh token. Tente novamente em alguns minutos.',
@@ -175,7 +175,7 @@ export const twoFactorVerifyLimiter = rateLimit({
   keyGenerator: (req) => {
     // Usar IP + userId para identificar tentativas
     const userId = req.user?.id || req.body?.userId || '';
-    return `${req.ip}:${userId}`;
+    return `${ipKeyGenerator(req)}:${userId}`;
   },
   handler: async (req, res) => {
     const { ip, userAgent } = extractRequestInfo(req);
@@ -210,7 +210,7 @@ export const twoFactorSetupLimiter = rateLimit({
   keyGenerator: (req) => {
     // Usar IP + userId para identificar tentativas
     const userId = req.user?.id || '';
-    return `${req.ip}:${userId}`;
+    return `${ipKeyGenerator(req)}:${userId}`;
   },
   handler: async (req, res) => {
     const { ip, userAgent } = extractRequestInfo(req);
@@ -245,7 +245,7 @@ export const twoFactorBackupLimiter = rateLimit({
   keyGenerator: (req) => {
     // Usar IP + userId para identificar tentativas
     const userId = req.user?.id || '';
-    return `${req.ip}:${userId}`;
+    return `${ipKeyGenerator(req)}:${userId}`;
   },
   handler: async (req, res) => {
     const { ip, userAgent } = extractRequestInfo(req);

@@ -1,0 +1,548 @@
+{
+  "/api/auth/login": {
+    "post": {
+      "summary": "Realizar login no sistema",
+      "description": "Autentica um usuário com email e senha, retornando um token JWT",
+      "tags": [
+        "Autenticação"
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/LoginRequest"
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Login realizado com sucesso",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginResponse"
+              }
+            }
+          }
+        },
+        "400": {
+          "$ref": "#/components/responses/ValidationError"
+        },
+        "401": {
+          "description": "Credenciais inválidas",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Error"
+              },
+              "example": {
+                "error": "Credenciais inválidas",
+                "message": "Email ou senha incorretos"
+              }
+            }
+          }
+        },
+        "429": {
+          "$ref": "#/components/responses/RateLimitError"
+        },
+        "500": {
+          "$ref": "#/components/responses/InternalServerError"
+        }
+      }
+    }
+  },
+  "/api/auth/register": {
+    "post": {
+      "summary": "Registrar novo usuário",
+      "description": "Cria uma nova conta de usuário no sistema",
+      "tags": [
+        "Autenticação"
+      ],
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/RegisterRequest"
+            }
+          }
+        }
+      },
+      "responses": {
+        "201": {
+          "description": "Usuário registrado com sucesso",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Success"
+              },
+              "example": {
+                "success": true,
+                "message": "Usuário registrado com sucesso",
+                "data": {
+                  "user": {
+                    "id": "123e4567-e89b-12d3-a456-426614174000",
+                    "email": "novo@medstaff.com",
+                    "name": "João Silva"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "400": {
+          "$ref": "#/components/responses/ValidationError"
+        },
+        "409": {
+          "description": "Email já está em uso",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Error"
+              },
+              "example": {
+                "error": "Email já existe",
+                "message": "Este email já está sendo usado por outro usuário"
+              }
+            }
+          }
+        },
+        "429": {
+          "$ref": "#/components/responses/RateLimitError"
+        },
+        "500": {
+          "$ref": "#/components/responses/InternalServerError"
+        }
+      }
+    }
+  },
+  "/api/auth/me": {
+    "get": {
+      "summary": "Obter dados do usuário atual",
+      "description": "Retorna os dados do usuário autenticado",
+      "tags": [
+        "Autenticação"
+      ],
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Dados do usuário obtidos com sucesso",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "success": {
+                    "type": "boolean",
+                    "example": true
+                  },
+                  "user": {
+                    "$ref": "#/components/schemas/User"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "401": {
+          "$ref": "#/components/responses/UnauthorizedError"
+        },
+        "429": {
+          "$ref": "#/components/responses/RateLimitError"
+        },
+        "500": {
+          "$ref": "#/components/responses/InternalServerError"
+        }
+      }
+    }
+  },
+  "/api/auth/logout": {
+    "post": {
+      "summary": "Realizar logout",
+      "description": "Invalida o token do usuário e realiza logout",
+      "tags": [
+        "Autenticação"
+      ],
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Logout realizado com sucesso",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Success"
+              },
+              "example": {
+                "success": true,
+                "message": "Logout realizado com sucesso"
+              }
+            }
+          }
+        },
+        "401": {
+          "$ref": "#/components/responses/UnauthorizedError"
+        },
+        "500": {
+          "$ref": "#/components/responses/InternalServerError"
+        }
+      }
+    }
+  },
+  "/api/dashboard/quick-stats": {
+    "get": {
+      "summary": "Estatísticas rápidas do dashboard",
+      "description": "Retorna estatísticas resumidas do sistema para o dashboard principal",
+      "tags": [
+        "Dashboard"
+      ],
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Estatísticas obtidas com sucesso",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "success": {
+                    "type": "boolean",
+                    "example": true
+                  },
+                  "data": {
+                    "$ref": "#/components/schemas/DashboardStats"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "401": {
+          "$ref": "#/components/responses/UnauthorizedError"
+        },
+        "500": {
+          "$ref": "#/components/responses/InternalServerError"
+        }
+      }
+    }
+  },
+  "/api/security-dashboard/overview": {
+    "get": {
+      "summary": "Visão geral das métricas de segurança",
+      "description": "Retorna uma visão completa das métricas de segurança do sistema (apenas para administradores)",
+      "tags": [
+        "Segurança"
+      ],
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Métricas de segurança obtidas com sucesso",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "success": {
+                    "type": "boolean",
+                    "example": true
+                  },
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "alerts": {
+                        "type": "object",
+                        "properties": {
+                          "total": {
+                            "type": "integer"
+                          },
+                          "byType": {
+                            "type": "object"
+                          },
+                          "bySeverity": {
+                            "type": "object"
+                          },
+                          "recent": {
+                            "type": "array",
+                            "items": {
+                              "$ref": "#/components/schemas/Alert"
+                            }
+                          }
+                        }
+                      },
+                      "performance": {
+                        "type": "object",
+                        "properties": {
+                          "totalRequests": {
+                            "type": "integer"
+                          },
+                          "averageResponseTime": {
+                            "type": "number"
+                          },
+                          "errorRate": {
+                            "type": "number"
+                          }
+                        }
+                      },
+                      "timestamp": {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "401": {
+          "$ref": "#/components/responses/UnauthorizedError"
+        },
+        "403": {
+          "$ref": "#/components/responses/ForbiddenError"
+        },
+        "500": {
+          "$ref": "#/components/responses/InternalServerError"
+        }
+      }
+    }
+  },
+  "/api/security-dashboard/alerts": {
+    "get": {
+      "summary": "Alertas detalhados com filtros e paginação",
+      "description": "Retorna lista de alertas de segurança com opções de filtro e paginação",
+      "tags": [
+        "Segurança"
+      ],
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "parameters": [
+        {
+          "in": "query",
+          "name": "page",
+          "schema": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 1
+          },
+          "description": "Número da página"
+        },
+        {
+          "in": "query",
+          "name": "limit",
+          "schema": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 10
+          },
+          "description": "Número de itens por página"
+        },
+        {
+          "in": "query",
+          "name": "severity",
+          "schema": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "critical"
+            ]
+          },
+          "description": "Filtrar por severidade"
+        },
+        {
+          "in": "query",
+          "name": "type",
+          "schema": {
+            "type": "string",
+            "enum": [
+              "login_attempt",
+              "suspicious_activity",
+              "system_error",
+              "security_breach"
+            ]
+          },
+          "description": "Filtrar por tipo de alerta"
+        },
+        {
+          "in": "query",
+          "name": "startDate",
+          "schema": {
+            "type": "string",
+            "format": "date"
+          },
+          "description": "Data inicial para filtro (YYYY-MM-DD)"
+        },
+        {
+          "in": "query",
+          "name": "endDate",
+          "schema": {
+            "type": "string",
+            "format": "date"
+          },
+          "description": "Data final para filtro (YYYY-MM-DD)"
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Lista de alertas obtida com sucesso",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "success": {
+                    "type": "boolean",
+                    "example": true
+                  },
+                  "data": {
+                    "type": "object",
+                    "properties": {
+                      "alerts": {
+                        "type": "array",
+                        "items": {
+                          "$ref": "#/components/schemas/Alert"
+                        }
+                      },
+                      "pagination": {
+                        "type": "object",
+                        "properties": {
+                          "page": {
+                            "type": "integer"
+                          },
+                          "limit": {
+                            "type": "integer"
+                          },
+                          "total": {
+                            "type": "integer"
+                          },
+                          "pages": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "400": {
+          "$ref": "#/components/responses/ValidationError"
+        },
+        "401": {
+          "$ref": "#/components/responses/UnauthorizedError"
+        },
+        "500": {
+          "$ref": "#/components/responses/InternalServerError"
+        }
+      }
+    }
+  },
+  "/api/2fa/status": {
+    "get": {
+      "summary": "Verificar status do 2FA",
+      "description": "Retorna o status atual da autenticação de dois fatores para o usuário",
+      "tags": [
+        "Autenticação 2FA"
+      ],
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Status do 2FA obtido com sucesso",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TwoFactorStatus"
+              }
+            }
+          }
+        },
+        "401": {
+          "$ref": "#/components/responses/UnauthorizedError"
+        },
+        "429": {
+          "$ref": "#/components/responses/RateLimitError"
+        },
+        "500": {
+          "$ref": "#/components/responses/InternalServerError"
+        }
+      }
+    }
+  },
+  "/api/2fa/generate-secret": {
+    "post": {
+      "summary": "Configurar 2FA",
+      "description": "Gera um novo segredo para configuração do 2FA",
+      "tags": [
+        "Autenticação 2FA"
+      ],
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "Segredo 2FA gerado com sucesso",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "success": {
+                    "type": "boolean",
+                    "example": true
+                  },
+                  "secret": {
+                    "type": "string",
+                    "description": "Segredo base32 para configuração no app autenticador"
+                  },
+                  "qrCode": {
+                    "type": "string",
+                    "description": "URL do QR Code para configuração"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "401": {
+          "$ref": "#/components/responses/UnauthorizedError"
+        },
+        "429": {
+          "$ref": "#/components/responses/RateLimitError"
+        },
+        "500": {
+          "$ref": "#/components/responses/InternalServerError"
+        }
+      }
+    }
+  }
+}

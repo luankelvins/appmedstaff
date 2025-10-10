@@ -20,11 +20,11 @@ const options = {
     },
     servers: [
       {
-        url: 'http://localhost:3001',
+        url: 'http://localhost:3001/api/v1',
         description: 'Servidor de Desenvolvimento'
       },
       {
-        url: 'https://api.medstaff.com',
+        url: 'https://api.medstaff.com/api/v1',
         description: 'Servidor de Produção'
       }
     ],
@@ -288,6 +288,360 @@ const options = {
               description: 'Dados retornados'
             }
           }
+        },
+        Lead: {
+          type: 'object',
+          properties: {
+            id: {
+              type: 'string',
+              format: 'uuid',
+              description: 'ID único do lead'
+            },
+            nome: {
+              type: 'string',
+              description: 'Nome do lead'
+            },
+            email: {
+              type: 'string',
+              format: 'email',
+              description: 'Email do lead'
+            },
+            telefone: {
+              type: 'string',
+              description: 'Telefone do lead'
+            },
+            empresa: {
+              type: 'string',
+              description: 'Empresa do lead'
+            },
+            origem: {
+              type: 'string',
+              enum: ['website', 'telefone', 'email', 'indicacao', 'evento', 'outro'],
+              description: 'Origem do lead'
+            },
+            status: {
+              type: 'string',
+              enum: ['novo', 'contato', 'qualificado', 'proposta', 'fechado', 'perdido'],
+              description: 'Status do lead'
+            },
+            observacoes: {
+              type: 'string',
+              description: 'Observações sobre o lead'
+            },
+            responsavelId: {
+              type: 'string',
+              format: 'uuid',
+              description: 'ID do responsável pelo lead'
+            },
+            createdAt: {
+              type: 'string',
+              format: 'date-time'
+            },
+            updatedAt: {
+              type: 'string',
+              format: 'date-time'
+            }
+          }
+        },
+        Task: {
+          type: 'object',
+          properties: {
+            id: {
+              type: 'string',
+              format: 'uuid',
+              description: 'ID único da tarefa'
+            },
+            titulo: {
+              type: 'string',
+              description: 'Título da tarefa'
+            },
+            descricao: {
+              type: 'string',
+              description: 'Descrição da tarefa'
+            },
+            status: {
+              type: 'string',
+              enum: ['pendente', 'em_andamento', 'concluida', 'cancelada'],
+              description: 'Status da tarefa'
+            },
+            prioridade: {
+              type: 'string',
+              enum: ['baixa', 'media', 'alta', 'urgente'],
+              description: 'Prioridade da tarefa'
+            },
+            dataVencimento: {
+              type: 'string',
+              format: 'date-time',
+              description: 'Data de vencimento da tarefa'
+            },
+            responsavelId: {
+              type: 'string',
+              format: 'uuid',
+              description: 'ID do responsável pela tarefa'
+            },
+            createdAt: {
+              type: 'string',
+              format: 'date-time'
+            },
+            updatedAt: {
+              type: 'string',
+              format: 'date-time'
+            }
+          }
+        },
+        Employee: {
+          type: 'object',
+          properties: {
+            id: {
+              type: 'string',
+              format: 'uuid',
+              description: 'ID único do funcionário'
+            },
+            nome: {
+              type: 'string',
+              description: 'Nome do funcionário'
+            },
+            email: {
+              type: 'string',
+              format: 'email',
+              description: 'Email do funcionário'
+            },
+            telefone: {
+              type: 'string',
+              description: 'Telefone do funcionário'
+            },
+            cargo: {
+              type: 'string',
+              description: 'Cargo do funcionário'
+            },
+            departamento: {
+              type: 'string',
+              description: 'Departamento do funcionário'
+            },
+            salario: {
+              type: 'number',
+              description: 'Salário do funcionário'
+            },
+            status: {
+              type: 'string',
+              enum: ['ativo', 'inativo', 'suspenso'],
+              description: 'Status do funcionário'
+            },
+            dataAdmissao: {
+              type: 'string',
+              format: 'date',
+              description: 'Data de admissão'
+            },
+            createdAt: {
+              type: 'string',
+              format: 'date-time'
+            },
+            updatedAt: {
+              type: 'string',
+              format: 'date-time'
+            }
+          }
+        },
+        ClientePF: {
+          type: 'object',
+          properties: {
+            id: {
+              type: 'string',
+              format: 'uuid',
+              description: 'ID único do cliente PF'
+            },
+            nome: {
+              type: 'string',
+              description: 'Nome do cliente'
+            },
+            email: {
+              type: 'string',
+              format: 'email',
+              description: 'Email do cliente'
+            },
+            telefone: {
+              type: 'string',
+              description: 'Telefone do cliente'
+            },
+            cpf: {
+              type: 'string',
+              description: 'CPF do cliente'
+            },
+            endereco: {
+              type: 'object',
+              description: 'Endereço do cliente'
+            },
+            status: {
+              type: 'string',
+              enum: ['ativo', 'inativo', 'suspenso', 'cancelado'],
+              description: 'Status do cliente'
+            },
+            responsavelId: {
+              type: 'string',
+              format: 'uuid',
+              description: 'ID do responsável pelo cliente'
+            },
+            createdAt: {
+              type: 'string',
+              format: 'date-time'
+            },
+            updatedAt: {
+              type: 'string',
+              format: 'date-time'
+            }
+          }
+        },
+        ClientePJ: {
+          type: 'object',
+          properties: {
+            id: {
+              type: 'string',
+              format: 'uuid',
+              description: 'ID único do cliente PJ'
+            },
+            razaoSocial: {
+              type: 'string',
+              description: 'Razão social da empresa'
+            },
+            nomeFantasia: {
+              type: 'string',
+              description: 'Nome fantasia da empresa'
+            },
+            cnpj: {
+              type: 'string',
+              description: 'CNPJ da empresa'
+            },
+            email: {
+              type: 'string',
+              format: 'email',
+              description: 'Email da empresa'
+            },
+            telefone: {
+              type: 'string',
+              description: 'Telefone da empresa'
+            },
+            endereco: {
+              type: 'object',
+              description: 'Endereço da empresa'
+            },
+            status: {
+              type: 'string',
+              enum: ['ativo', 'inativo', 'suspenso', 'cancelado'],
+              description: 'Status do cliente'
+            },
+            certificadoDigital: {
+              type: 'object',
+              description: 'Informações do certificado digital'
+            },
+            createdAt: {
+              type: 'string',
+              format: 'date-time'
+            },
+            updatedAt: {
+              type: 'string',
+              format: 'date-time'
+            }
+          }
+        },
+        Notification: {
+          type: 'object',
+          properties: {
+            id: {
+              type: 'string',
+              format: 'uuid',
+              description: 'ID único da notificação'
+            },
+            userId: {
+              type: 'string',
+              format: 'uuid',
+              description: 'ID do usuário destinatário'
+            },
+            titulo: {
+              type: 'string',
+              description: 'Título da notificação'
+            },
+            mensagem: {
+              type: 'string',
+              description: 'Mensagem da notificação'
+            },
+            tipo: {
+              type: 'string',
+              enum: ['info', 'warning', 'error', 'success'],
+              description: 'Tipo da notificação'
+            },
+            lida: {
+              type: 'boolean',
+              description: 'Indica se a notificação foi lida'
+            },
+            dados: {
+              type: 'object',
+              description: 'Dados adicionais da notificação'
+            },
+            createdAt: {
+              type: 'string',
+              format: 'date-time'
+            },
+            updatedAt: {
+              type: 'string',
+              format: 'date-time'
+            }
+          }
+        },
+        Expense: {
+          type: 'object',
+          properties: {
+            id: {
+              type: 'string',
+              format: 'uuid',
+              description: 'ID único da despesa'
+            },
+            descricao: {
+              type: 'string',
+              description: 'Descrição da despesa'
+            },
+            valor: {
+              type: 'number',
+              description: 'Valor da despesa'
+            },
+            categoria: {
+              type: 'string',
+              description: 'Categoria da despesa'
+            },
+            dataVencimento: {
+              type: 'string',
+              format: 'date',
+              description: 'Data de vencimento'
+            },
+            dataPagamento: {
+              type: 'string',
+              format: 'date',
+              description: 'Data de pagamento'
+            },
+            fornecedor: {
+              type: 'string',
+              description: 'Fornecedor da despesa'
+            },
+            status: {
+              type: 'string',
+              enum: ['pendente', 'paga', 'vencida', 'cancelada'],
+              description: 'Status da despesa'
+            },
+            anexos: {
+              type: 'array',
+              items: {
+                type: 'object'
+              },
+              description: 'Anexos da despesa'
+            },
+            createdAt: {
+              type: 'string',
+              format: 'date-time'
+            },
+            updatedAt: {
+              type: 'string',
+              format: 'date-time'
+            }
+          }
         }
       },
       responses: {
@@ -380,7 +734,7 @@ const options = {
     tags: [
       {
         name: 'Autenticação',
-        description: 'Endpoints para autenticação e gerenciamento de usuários'
+        description: 'Endpoints relacionados à autenticação de usuários'
       },
       {
         name: '2FA',
@@ -388,25 +742,55 @@ const options = {
       },
       {
         name: 'Dashboard',
-        description: 'Endpoints para métricas e estatísticas do dashboard'
+        description: 'Endpoints para dados do dashboard'
       },
       {
         name: 'Segurança',
-        description: 'Endpoints para monitoramento e alertas de segurança'
+        description: 'Endpoints para monitoramento de segurança'
       },
       {
         name: 'Alertas',
-        description: 'Endpoints para gerenciamento de alertas do sistema'
+        description: 'Endpoints para gerenciamento de alertas'
       },
       {
         name: 'Sistema',
-        description: 'Endpoints para monitoramento e saúde do sistema'
+        description: 'Endpoints para monitoramento do sistema'
+      },
+      {
+        name: 'Funcionários',
+        description: 'Endpoints para gerenciamento de funcionários'
+      },
+      {
+        name: 'Tarefas',
+        description: 'Endpoints para gerenciamento de tarefas'
+      },
+      {
+        name: 'Leads',
+        description: 'Endpoints para gerenciamento de leads'
+      },
+      {
+        name: 'Clientes PF',
+        description: 'Endpoints para gerenciamento de clientes pessoa física'
+      },
+      {
+        name: 'Clientes PJ',
+        description: 'Endpoints para gerenciamento de clientes pessoa jurídica'
+      },
+      {
+        name: 'Notificações',
+        description: 'Endpoints para gerenciamento de notificações'
+      },
+      {
+        name: 'Financeiro',
+        description: 'Endpoints para gerenciamento financeiro e despesas'
       }
     ]
   },
   apis: [
     './src/routes/*.js',
-    './src/controllers/*.js'
+    './src/controllers/*.js',
+    './routes/*.js',
+    './controllers/*.js'
   ]
 };
 

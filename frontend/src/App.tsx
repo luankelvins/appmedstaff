@@ -31,6 +31,9 @@ import { NotificationProvider } from './components/Notifications/NotificationSys
 
 import ImprovedFeedDemo from './pages/ImprovedFeedDemo'
 import FormExample from './components/Examples/FormExample'
+import ServicesIntegrationTest from './components/Test/ServicesIntegrationTest'
+import IntegratedDashboard from './components/Dashboard/IntegratedDashboard'
+import DashboardIntegrationTest from './components/Test/DashboardIntegrationTest'
 
 // Componente de loading para Suspense
 const LoadingFallback = () => (
@@ -151,6 +154,9 @@ function App() {
             <Route path="demo/employee-profile" element={<EmployeeProfileDemo />} />
             <Route path="demo/improved-feed" element={<ImprovedFeedDemo />} />
             <Route path="demo/form-validation" element={<FormExample />} />
+            <Route path="demo/services-integration" element={<ServicesIntegrationTest />} />
+            <Route path="/demo/integrated-dashboard" element={<IntegratedDashboard />} />
+                  <Route path="/demo/dashboard-test" element={<DashboardIntegrationTest />} />
             
 
           </Route>

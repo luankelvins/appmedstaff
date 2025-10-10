@@ -1,20 +1,17 @@
 import { authServiceHttp } from '../utils/authServiceHttp'
+import { 
+  API_CONFIG, 
+  HTTP_STATUS, 
+  ERROR_MESSAGES, 
+  buildApiUrl, 
+  buildQueryString,
+  isSuccessStatus,
+  isAuthError,
+  isValidationError,
+  type ApiResponse 
+} from '../config/api'
 
-// ==================== INTERFACES ====================
-
-export interface ApiResponse<T = any> {
-  success: boolean
-  data?: T
-  message?: string
-  error?: string
-  errors?: Record<string, string[]>
-  pagination?: {
-    page: number
-    limit: number
-    total: number
-    pages: number
-  }
-}
+// ==================== CLASSES DE ERRO ====================
 
 export class ApiError extends Error {
   status?: number
@@ -32,22 +29,21 @@ export class ApiError extends Error {
   }
 }
 
-// ==================== CONFIGURAÇÕES ====================
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
-const DEFAULT_TIMEOUT = 10000
+// Re-exportar tipos da configuração
+export type { ApiResponse }
 
 // ==================== CLIENTE HTTP ====================
 
 class HttpClient {
   private baseUrl: string
   private defaultHeaders: Record<string, string>
+  private requestQueue: Map<string, Promise<any>> = new Map()
+  private retryAttempts: Map<string, number> = new Map()
+  private rateLimitMap: Map<string, number[]> = new Map()
 
-  constructor(baseUrl: string = API_BASE_URL) {
+  constructor(baseUrl: string = API_CONFIG.BASE_URL) {
     this.baseUrl = baseUrl
-    this.defaultHeaders = {
-      'Content-Type': 'application/json'
-    }
+    this.defaultHeaders = API_CONFIG.DEFAULT_HEADERS
   }
 
   // ==================== MÉTODOS PRIVADOS ====================
@@ -57,7 +53,68 @@ class HttpClient {
     return token ? { Authorization: `Bearer ${token}` } : {}
   }
 
-  private async makeRequest<T>(
+  private generateRequestKey(endpoint: string, options: RequestInit): string {
+    const method = options.method || 'GET'
+    const body = options.body ? JSON.stringify(options.body) : ''
+    return `${method}:${endpoint}:${body}`
+  }
+
+  private checkRateLimit(endpoint: string): boolean {
+    const now = Date.now()
+    const windowMs = 60000 // 1 minuto
+    const maxRequests = 100 // máximo 100 requests por minuto por endpoint
+
+    if (!this.rateLimitMap.has(endpoint)) {
+      this.rateLimitMap.set(endpoint, [])
+    }
+
+    const requests = this.rateLimitMap.get(endpoint)!
+    const validRequests = requests.filter(time => now - time < windowMs)
+    
+    if (validRequests.length >= maxRequests) {
+      console.warn(`[Security] Rate limit exceeded for endpoint: ${endpoint}`)
+      return false
+    }
+
+    validRequests.push(now)
+    this.rateLimitMap.set(endpoint, validRequests)
+    return true
+  }
+
+  private async retryRequest<T>(
+    endpoint: string,
+    options: RequestInit,
+    attempt: number = 1
+  ): Promise<ApiResponse<T>> {
+    const maxRetries = 3
+    const retryDelay = Math.min(1000 * Math.pow(2, attempt - 1), 5000) // Exponential backoff
+
+    try {
+      return await this.makeRequestInternal<T>(endpoint, options)
+    } catch (error) {
+      if (attempt < maxRetries && error instanceof ApiError) {
+        // Retry em casos específicos
+        if (error.status === 429 || error.status === 503 || error.status === 502) {
+          console.log(`[Security] Retrying request ${attempt}/${maxRetries} for ${endpoint}`)
+          await new Promise(resolve => setTimeout(resolve, retryDelay))
+          return this.retryRequest<T>(endpoint, options, attempt + 1)
+        }
+      }
+      throw error
+    }
+  }
+
+  private logSecurityEvent(event: string, details: any) {
+    const timestamp = new Date().toISOString()
+    console.log(`[Security] ${timestamp} - ${event}:`, details)
+    
+    // Em produção, enviar para serviço de monitoramento
+    if (process.env.NODE_ENV === 'production') {
+      // Implementar envio para serviço de logs/monitoramento
+    }
+  }
+
+  private async makeRequestInternal<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
@@ -74,7 +131,7 @@ class HttpClient {
 
     // Timeout
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT)
+    const timeoutId = setTimeout(() => controller.abort(), API_CONFIG.TIMEOUT)
     config.signal = controller.signal
 
     try {
@@ -129,6 +186,50 @@ class HttpClient {
 
       throw new ApiError('Erro desconhecido', 500, 'UNKNOWN_ERROR')
     }
+  }
+
+  // Método público com interceptadores de segurança
+  private async makeRequest<T>(
+    endpoint: string,
+    options: RequestInit = {}
+  ): Promise<ApiResponse<T>> {
+    // Verificar rate limiting
+    if (!this.checkRateLimit(endpoint)) {
+      throw new ApiError('Rate limit exceeded', 429, 'RATE_LIMIT_EXCEEDED')
+    }
+
+    // Gerar chave única para a requisição
+    const requestKey = this.generateRequestKey(endpoint, options)
+
+    // Deduplicação de requisições (para GET requests)
+    if (options.method === 'GET' || !options.method) {
+      if (this.requestQueue.has(requestKey)) {
+        this.logSecurityEvent('REQUEST_DEDUPLICATED', { endpoint, method: options.method })
+        return this.requestQueue.get(requestKey)!
+      }
+    }
+
+    // Executar requisição com retry
+    const requestPromise = this.retryRequest<T>(endpoint, options)
+
+    // Adicionar à fila de requisições
+    if (options.method === 'GET' || !options.method) {
+      this.requestQueue.set(requestKey, requestPromise)
+      
+      // Remover da fila após completar
+      requestPromise.finally(() => {
+        this.requestQueue.delete(requestKey)
+      })
+    }
+
+    // Log de segurança
+    this.logSecurityEvent('REQUEST_INITIATED', {
+      endpoint,
+      method: options.method || 'GET',
+      hasAuth: !!this.getAuthHeaders().Authorization
+    })
+
+    return requestPromise
   }
 
   // ==================== MÉTODOS PÚBLICOS ====================

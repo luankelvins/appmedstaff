@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import DashboardWidget from '../DashboardWidget'
 import { AdvancedMetrics } from '../AdvancedMetrics'
-import { apiService } from '../../../services/apiService'
+import { useDashboardData } from '../../../hooks/useDashboardData'
 
 interface BaseWidgetProps {
   onRefresh?: () => void
@@ -45,28 +45,35 @@ const QuickStatsWidget: React.FC<BaseWidgetProps> = ({
   className 
 }) => {
   const [stats, setStats] = useState<MetricData[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | undefined>(undefined)
+  
+  // Usar o hook para buscar dados do dashboard
+  const { 
+    data, 
+    loading, 
+    error, 
+    refresh 
+  } = useDashboardData({
+    autoRefresh: true,
+    refreshInterval: 300, // 5 minutos
+    enablePolling: true,
+    pollingInterval: 60 // 1 minuto para dados críticos
+  });
 
-  const loadStats = async () => {
-    try {
-      setLoading(true)
-      setError(undefined)
-      
-      // Buscar dados reais da API
-      const dashboardStats = await apiService.getQuickStats()
-      const financialMetrics = await apiService.getFinancialMetrics()
+  // Processar dados quando disponíveis
+  useEffect(() => {
+    if (data.quickStats && data.financialMetrics) {
+      const { quickStats, financialMetrics } = data;
       
       // Calcular tendências
-      const currentRevenue = financialMetrics.currentRevenue || 0
-      const previousRevenue = financialMetrics.previousRevenue || 0
-      const revenueTrend = previousRevenue > 0 ? ((currentRevenue - previousRevenue) / previousRevenue) * 100 : 0
+      const currentRevenue = financialMetrics.monthlyRevenue || 0;
+      const previousRevenue = financialMetrics.totalRevenue - financialMetrics.monthlyRevenue || 0;
+      const revenueTrend = previousRevenue > 0 ? ((currentRevenue - previousRevenue) / previousRevenue) * 100 : 0;
       
       const realStats: MetricData[] = [
         {
           id: 'total-users',
           title: 'Total de Usuários',
-          value: dashboardStats.totalUsers,
+          value: quickStats.totalUsers,
           trend: {
             value: 12.5, // Pode ser calculado com dados históricos
             isPositive: true,
@@ -95,16 +102,16 @@ const QuickStatsWidget: React.FC<BaseWidgetProps> = ({
         {
           id: 'completed-tasks',
           title: 'Tarefas Concluídas',
-          value: dashboardStats.completedTasks,
+          value: quickStats.completedTasks,
           trend: {
-            value: 5.1,
-            isPositive: dashboardStats.completedTasks > (dashboardStats.totalTasks * 0.8),
+            value: quickStats.taskCompletionRate,
+            isPositive: quickStats.taskCompletionRate > 80,
             period: 'vs semana anterior'
           },
           target: {
-            value: dashboardStats.totalTasks,
-            achieved: dashboardStats.completedTasks,
-            percentage: dashboardStats.totalTasks > 0 ? (dashboardStats.completedTasks / dashboardStats.totalTasks) * 100 : 0
+            value: quickStats.totalTasks,
+            achieved: quickStats.completedTasks,
+            percentage: quickStats.taskCompletionRate
           },
           icon: CheckCircle,
           color: 'emerald'
@@ -112,7 +119,7 @@ const QuickStatsWidget: React.FC<BaseWidgetProps> = ({
         {
           id: 'active-users',
           title: 'Usuários Ativos',
-          value: dashboardStats.activeUsers,
+          value: quickStats.activeUsers,
           trend: {
             value: 15.3,
             isPositive: true,
@@ -121,24 +128,15 @@ const QuickStatsWidget: React.FC<BaseWidgetProps> = ({
           icon: Target,
           color: 'purple'
         }
-      ]
+      ];
       
-      setStats(realStats)
-    } catch (err) {
-      setError('Erro ao carregar estatísticas')
-      console.error('Error loading stats:', err)
-    } finally {
-      setLoading(false)
+      setStats(realStats);
     }
-  }
-
-  useEffect(() => {
-    loadStats()
-  }, [])
+  }, [data.quickStats, data.financialMetrics]);
 
   const handleRefresh = () => {
-    loadStats()
-    onRefresh?.()
+    refresh();
+    onRefresh?.();
   }
 
   return (
@@ -147,7 +145,7 @@ const QuickStatsWidget: React.FC<BaseWidgetProps> = ({
       title="Estatísticas Rápidas"
       subtitle="Visão geral dos principais indicadores"
       loading={loading}
-      error={error}
+      error={error || undefined}
       size="large"
       refreshable
       configurable

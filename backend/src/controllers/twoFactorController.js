@@ -7,7 +7,7 @@ class TwoFactorController {
   /**
    * Gera um novo secret para configuração do 2FA
    */
-  async generateSecret(req, res) {
+  static async generateSecret(req, res) {
     try {
       const userId = req.user.userId;
       const userEmail = req.user.email;
@@ -52,7 +52,7 @@ class TwoFactorController {
   /**
    * Habilita 2FA para o usuário
    */
-  async enableTwoFactor(req, res) {
+  static async enableTwoFactor(req, res) {
     try {
       const userId = req.user.userId;
       const { token } = req.body;
@@ -98,7 +98,7 @@ class TwoFactorController {
   /**
    * Desabilita 2FA para o usuário
    */
-  async disableTwoFactor(req, res) {
+  static async disableTwoFactor(req, res) {
     try {
       const userId = req.user.userId;
 
@@ -136,7 +136,7 @@ class TwoFactorController {
   /**
    * Verifica o status do 2FA do usuário
    */
-  async getStatus(req, res) {
+  static async getStatus(req, res) {
     try {
       const userId = req.user.userId;
 
@@ -161,7 +161,7 @@ class TwoFactorController {
   /**
    * Regenera códigos de backup para 2FA
    */
-  async regenerateBackupCodes(req, res) {
+  static async regenerateBackupCodes(req, res) {
     try {
       const userId = req.user.userId;
       const { token } = req.body;
@@ -211,7 +211,7 @@ class TwoFactorController {
   /**
    * Verifica um token 2FA (para login)
    */
-  async verifyToken(req, res) {
+  static async verifyToken(req, res) {
     try {
       const { email, password, token } = req.body;
 
@@ -330,5 +330,4 @@ export const twoFactorValidations = {
   ]
 };
 
-const twoFactorController = new TwoFactorController();
-export default twoFactorController;
+export default TwoFactorController;

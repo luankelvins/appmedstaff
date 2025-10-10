@@ -1,6 +1,6 @@
 import pool from '../config/database.js';
 
-export class DashboardController {
+class DashboardController {
   static async getQuickStats(req, res) {
     try {
       // Buscar estatísticas gerais
@@ -330,3 +330,5 @@ export class DashboardController {
     }
   }
 }
+
+export default DashboardController;

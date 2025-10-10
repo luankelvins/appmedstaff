@@ -8,6 +8,8 @@ import dashboardRoutes from './routes/dashboardRoutes.js';
 import twoFactorRoutes from './routes/twoFactorRoutes.js';
 import alertRoutes from './routes/alertRoutes.js';
 import securityDashboardRoutes from './routes/securityDashboardRoutes.js';
+import protectedRoutes from './routes/protectedRoutes.js';
+import contratoRoutes from './routes/contratoRoutes.js';
 import { 
   logMiddleware, 
   errorMiddleware, 
@@ -191,6 +193,10 @@ app.use('/api/dashboard', dashboardPerformanceMiddleware, dashboardRoutes);
 app.use('/api/2fa', twoFactorRoutes);
 app.use('/api/alerts', alertRoutes);
 app.use('/api/security-dashboard', securityDashboardRoutes);
+app.use('/api/contratos', contratoRoutes);
+
+// Rotas protegidas com rate limiting específico
+app.use('/api/v1', advancedPerformanceMiddleware, protectedRoutes);
 
 // Middlewares de erro (devem vir por último)
 app.use(sentryErrorHandler); // Sentry error handler deve vir antes do error middleware
